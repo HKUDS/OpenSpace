@@ -30,6 +30,13 @@ VITE_API_BASE_URL=/api/v1
 npm install
 ```
 
+After the package is installed, verify both backend entry points from the same activated Python environment:
+
+```bash
+openspace-mcp --help
+openspace-dashboard --help
+```
+
 3. **Start the backend** (in a separate terminal)
 
 ```bash
@@ -41,6 +48,8 @@ python -m openspace.dashboard_server --host 127.0.0.1 --port 7788
 ```
 
 > Requires Python ≥ 3.12 with `flask` installed.
+>
+> If `openspace-dashboard` is not on `PATH`, use option B. On Windows, make sure the same virtual environment is activated before running either command.
 
 4. **Start the frontend**
 
@@ -57,6 +66,9 @@ Once `.env` is configured and dependencies are installed, you only need:
 ```bash
 # terminal 1 – backend
 openspace-dashboard --host 127.0.0.1 --port 7788
+
+# fallback if the console script is unavailable
+python -m openspace.dashboard_server --host 127.0.0.1 --port 7788
 
 # terminal 2 – frontend
 cd frontend
