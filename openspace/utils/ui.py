@@ -424,7 +424,8 @@ class OpenSpaceUI:
         status_text = status_display.get(status, status)
         
         print(box.text_line(f"  Status:          {status_text}", indent=4, text_color=''))
-        print(box.text_line(f"  Execution Time:  {colorize(f'{result.get('execution_time', 0):.2f}s', 'c')}", indent=4, text_color=''))
+        exec_time = result.get("execution_time", 0)
+        print(box.text_line(f"  Execution Time:  {colorize(f'{exec_time:.2f}s', 'c')}", indent=4, text_color=''))
         print(box.text_line(f"  Iterations:      {colorize(str(result.get('iterations', 0)), 'y')}", indent=4, text_color=''))
         print(box.text_line(f"  Completed Tasks: {colorize(str(result.get('completed_tasks', 0)), 'g')}", indent=4, text_color=''))
         
