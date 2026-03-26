@@ -104,6 +104,7 @@ mcp = FastMCP("OpenSpace", **_fastmcp_kwargs)
 _openspace_instance = None
 _openspace_lock = asyncio.Lock()
 _standalone_store = None
+_local_skill_registry = None
 
 # Internal state: tracks bot skill directories already registered this session.
 _registered_skill_dirs: set = set()
@@ -181,6 +182,64 @@ def _get_store():
         from openspace.skill_engine import SkillStore
         _standalone_store = SkillStore()
     return _standalone_store
+
+
+def _get_local_skill_registry():
+    """Build a lightweight SkillRegistry for local-only skill search.
+
+    This avoids initializing the full OpenSpace engine when callers only
+    want to inspect local skills. It mirrors the skill directory discovery
+    order used by the full engine, but skips LLM / provider startup.
+    """
+    global _local_skill_registry
+    if _local_skill_registry is not None:
+        return _local_skill_registry
+
+    from openspace.config import get_config
+    from openspace.skill_engine import SkillRegistry
+
+    skill_paths: List[Path] = []
+
+    host_dirs_raw = os.environ.get("OPENSPACE_HOST_SKILL_DIRS", "")
+    if host_dirs_raw:
+        for d in host_dirs_raw.split(","):
+            d = d.strip()
+            if not d:
+                continue
+            p = Path(d)
+            if p.exists():
+                skill_paths.append(p)
+            else:
+                logger.warning("Host skill dir does not exist: %s", d)
+
+    try:
+        skill_cfg = get_config().skills
+    except Exception as e:
+        logger.warning("Failed to load local skill config: %s", e)
+        skill_cfg = None
+
+    if skill_cfg and skill_cfg.skill_dirs:
+        for d in skill_cfg.skill_dirs:
+            p = Path(d)
+            if p in skill_paths:
+                continue
+            if p.exists():
+                skill_paths.append(p)
+            else:
+                logger.warning("Configured skill dir does not exist: %s", d)
+
+    builtin_skills = Path(__file__).resolve().parent / "skills"
+    if builtin_skills.exists():
+        skill_paths.append(builtin_skills)
+
+    if not skill_paths:
+        logger.debug("No local skill directories found")
+        return None
+
+    registry = SkillRegistry(skill_dirs=skill_paths)
+    registry.discover()
+    _local_skill_registry = registry
+    return registry
 
 
 def _get_cloud_client():
@@ -574,7 +633,11 @@ async def search_skills(
         # Resolve local skills + store
         local_skills = None
         store = None
-        if source in ("all", "local"):
+        if source == "local":
+            registry = _get_local_skill_registry()
+            if registry:
+                local_skills = registry.list_skills()
+        elif source == "all":
             openspace = await _get_openspace()
             registry = openspace._skill_registry
             if registry:
