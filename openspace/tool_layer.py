@@ -88,6 +88,7 @@ class OpenSpace:
         self._skill_store: Optional[SkillStore] = None
         self._execution_analyzer: Optional[ExecutionAnalyzer] = None
         self._skill_evolver: Optional[SkillEvolver] = None
+        self._skill_selection_llm: Optional[LLMClient] = None
         self._execution_count: int = 0  # For periodic metric-based evolution
         self._last_evolved_skills: List[Dict[str, Any]] = []  # Tracks skills evolved during last execute()
         
@@ -507,7 +508,9 @@ class OpenSpace:
                     f"Executing with GroundingAgent "
                     f"(max {max_iterations} iterations, no skills)..."
                 )
-                result = await self._grounding_agent.process(execution_context)
+                execution_context_p0 = {**execution_context}
+                execution_context_p0["max_iterations"] = max_iterations
+                result = await self._grounding_agent.process(execution_context_p0)
 
             execution_time = asyncio.get_event_loop().time() - start_time
             
@@ -730,12 +733,14 @@ class OpenSpace:
         """
         # 1. Dedicated skill selection model (OpenSpaceConfig.skill_registry_model)
         if self.config.skill_registry_model:
-            return LLMClient(
-                model=self.config.skill_registry_model,
-                timeout=30.0,  # skill selection should be fast
-                max_retries=2,
-                **self.config.llm_kwargs,
-            )
+            if self._skill_selection_llm is None:
+                self._skill_selection_llm = LLMClient(
+                    model=self.config.skill_registry_model,
+                    timeout=30.0,  # skill selection should be fast
+                    max_retries=2,
+                    **self.config.llm_kwargs,
+                )
+            return self._skill_selection_llm
 
         # 2. Tool retrieval model
         if hasattr(self._grounding_agent, '_tool_retrieval_llm') and self._grounding_agent._tool_retrieval_llm:
