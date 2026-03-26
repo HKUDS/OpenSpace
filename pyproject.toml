@@ -83,3 +83,7 @@ openspace = [
     "local_server/config.json",
     "local_server/README.md",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
