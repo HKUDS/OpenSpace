@@ -104,7 +104,6 @@ mcp = FastMCP("OpenSpace", **_fastmcp_kwargs)
 _openspace_instance = None
 _openspace_lock = asyncio.Lock()
 _standalone_store = None
-_local_skill_registry = None
 
 # Internal state: tracks bot skill directories already registered this session.
 _registered_skill_dirs: set = set()
@@ -190,11 +189,9 @@ def _get_local_skill_registry():
     This avoids initializing the full OpenSpace engine when callers only
     want to inspect local skills. It mirrors the skill directory discovery
     order used by the full engine, but skips LLM / provider startup.
+    The registry is rebuilt per call so later local searches can see
+    newly added skills without requiring a process restart.
     """
-    global _local_skill_registry
-    if _local_skill_registry is not None:
-        return _local_skill_registry
-
     from openspace.config import get_config
     from openspace.skill_engine import SkillRegistry
 
@@ -238,7 +235,6 @@ def _get_local_skill_registry():
 
     registry = SkillRegistry(skill_dirs=skill_paths)
     registry.discover()
-    _local_skill_registry = registry
     return registry
 
 
