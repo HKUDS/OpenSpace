@@ -102,6 +102,18 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
     if not resolved_model:
         resolved_model = "openrouter/anthropic/claude-sonnet-4.5"
 
+    # --- Tier 3: Provider-native env vars (MiniMax auto-detection) ---
+    # If the model targets MiniMax but no api_key was set in Tier 1/2,
+    # auto-detect MINIMAX_API_KEY from the environment.
+    if "api_key" not in kwargs and resolved_model and "minimax" in resolved_model.lower():
+        minimax_key = os.environ.get("MINIMAX_API_KEY")
+        if minimax_key:
+            kwargs["api_key"] = minimax_key
+            if "api_base" not in kwargs:
+                kwargs["api_base"] = "https://api.minimax.io/v1"
+            source = "MINIMAX_API_KEY env"
+            logger.info("Auto-detected MINIMAX_API_KEY for MiniMax model")
+
     if kwargs:
         safe = {
             k: (v[:8] + "..." if k == "api_key" and isinstance(v, str) and len(v) > 8 else v)

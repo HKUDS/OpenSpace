@@ -25,6 +25,41 @@ litellm.suppress_debug_info = True
 logger = Logger.get_logger(__name__)
 
 
+def _is_minimax_model(model: str) -> bool:
+    """Check if the model string refers to a MiniMax model."""
+    return "minimax" in model.lower()
+
+
+def _apply_minimax_constraints(completion_kwargs: Dict) -> Dict:
+    """Apply MiniMax-specific parameter constraints.
+
+    MiniMax API constraints:
+      - temperature must be in (0.0, 1.0] — cannot be 0
+      - response_format is not supported — must be removed
+    """
+    # Clamp temperature
+    temp = completion_kwargs.get("temperature")
+    if temp is not None:
+        original = temp
+        if temp <= 0:
+            temp = 0.01
+        elif temp > 1.0:
+            temp = 1.0
+        completion_kwargs["temperature"] = temp
+        if temp != original:
+            logger.debug(
+                "MiniMax: clamped temperature %.4f -> %.4f (must be in (0, 1])",
+                original, temp,
+            )
+
+    # Remove unsupported response_format
+    if "response_format" in completion_kwargs:
+        completion_kwargs.pop("response_format")
+        logger.debug("MiniMax: removed unsupported response_format parameter")
+
+    return completion_kwargs
+
+
 def _sanitize_schema(params: Dict) -> Dict:
     """Sanitize tool parameter schema to comply with Claude API requirements.
     
@@ -421,14 +456,19 @@ class LLMClient:
     
     async def _call_with_retry(self, **completion_kwargs):
         """Call LLM with backoff retry on rate limit errors
-        
+
         Timeout and retry strategy:
         - Single call timeout: self.timeout (default 120s)
         - Rate limit retry delays: 60s, 90s, 120s
         - Total max time: timeout * max_retries + sum(retry_delays)
         """
+        # Apply MiniMax-specific parameter constraints before calling
+        model = completion_kwargs.get("model", self.model)
+        if _is_minimax_model(model):
+            completion_kwargs = _apply_minimax_constraints(completion_kwargs)
+
         last_exception = None
-        
+
         for attempt in range(self.max_retries):
             try:
                 # Add timeout to the completion call

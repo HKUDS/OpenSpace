@@ -209,6 +209,9 @@ openspace
 
 # Execute task
 openspace --model "anthropic/claude-sonnet-4-5" --query "Create a monitoring dashboard for my Docker containers"
+
+# Use MiniMax (high-performance, 204K context)
+openspace --model "minimax/MiniMax-M2.7" --query "Build a REST API with FastAPI"
 ```
 
 Add your own custom skills: [`openspace/skills/README.md`](openspace/skills/README.md).

@@ -113,3 +113,41 @@ Layered system — later files override earlier ones:
 | `sandbox_enabled` | Enable sandboxing for all operations | `false` |
 | Per-backend overrides | Shell, MCP, GUI, Web each have independent security policies | Inherit global |
 
+## 6. Supported LLM Providers
+
+OpenSpace uses [LiteLLM](https://docs.litellm.ai/docs/providers) for model routing. Set your model via `--model` flag, `OPENSPACE_MODEL` env var, or host agent config.
+
+| Provider | Model format | API Key env var |
+|----------|-------------|-----------------|
+| OpenRouter | `openrouter/anthropic/claude-sonnet-4.5` | `OPENROUTER_API_KEY` |
+| Anthropic | `anthropic/claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
+| OpenAI | `openai/gpt-4o` | `OPENAI_API_KEY` |
+| DeepSeek | `deepseek/deepseek-chat` | `DEEPSEEK_API_KEY` |
+| MiniMax | `minimax/MiniMax-M2.7` | `MINIMAX_API_KEY` |
+
+### MiniMax
+
+[MiniMax](https://platform.minimax.io) offers high-performance LLMs with 204K context at competitive pricing.
+
+**Available models:**
+
+| Model | Context | Description |
+|-------|---------|-------------|
+| `MiniMax-M2.7` | 204K | Peak performance, ultimate value |
+| `MiniMax-M2.7-highspeed` | 204K | Same performance, faster and more agile |
+
+**Quick setup:**
+
+```bash
+# Set your API key
+export MINIMAX_API_KEY=your-key-here
+
+# Run with MiniMax
+openspace --model "minimax/MiniMax-M2.7" --query "your task"
+```
+
+**API docs:** [OpenAI-compatible API](https://platform.minimax.io/docs/api-reference/text-openai-api)
+
+> [!NOTE]
+> MiniMax temperature is automatically clamped to `(0.0, 1.0]` by OpenSpace. The `response_format` parameter is not supported and is automatically removed.
+

@@ -31,7 +31,7 @@ PROVIDER_REGISTRY: List[tuple] = [
     ("zhipu",       ("zhipu", "glm", "zai"),           ""),
     ("dashscope",   ("qwen", "dashscope"),             ""),
     ("moonshot",    ("moonshot", "kimi"),               "https://api.moonshot.ai/v1"),
-    ("minimax",     ("minimax",),                      "https://api.minimax.io/v1"),
+    ("minimax",     ("minimax",),                      "https://api.minimax.io/v1"),  # MiniMax-M2.7, MiniMax-M2.7-highspeed
     ("groq",        ("groq",),                         ""),
 ]
 
