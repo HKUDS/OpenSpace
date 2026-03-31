@@ -424,11 +424,18 @@ def _discover_workflow_dirs() -> List[Path]:
     for root in WORKFLOW_ROOTS:
         if not root.exists():
             continue
-        _scan_workflow_tree(root, discovered)
+        _scan_workflow_tree(root, discovered, root=root)
     return sorted(discovered.values(), key=lambda item: item.stat().st_mtime, reverse=True)
 
 
-def _scan_workflow_tree(directory: Path, discovered: Dict[str, Path], *, _depth: int = 0, _max_depth: int = 6) -> None:
+def _scan_workflow_tree(
+    directory: Path,
+    discovered: Dict[str, Path],
+    *,
+    root: Path,
+    _depth: int = 0,
+    _max_depth: int = 6,
+) -> None:
     if _depth > _max_depth:
         return
     try:
@@ -439,9 +446,35 @@ def _scan_workflow_tree(directory: Path, discovered: Dict[str, Path], *, _depth:
         if not child.is_dir():
             continue
         if (child / "metadata.json").exists() or (child / "traj.jsonl").exists():
-            discovered.setdefault(child.name, child)
+            discovered.setdefault(_workflow_id(child, root=root), child)
         else:
-            _scan_workflow_tree(child, discovered, _depth=_depth + 1, _max_depth=_max_depth)
+            _scan_workflow_tree(
+                child,
+                discovered,
+                root=root,
+                _depth=_depth + 1,
+                _max_depth=_max_depth,
+            )
+
+
+def _workflow_root(path: Path) -> Optional[Path]:
+    resolved = path.resolve()
+    for root in WORKFLOW_ROOTS:
+        try:
+            resolved.relative_to(root.resolve())
+            return root
+        except ValueError:
+            continue
+    return None
+
+
+def _workflow_id(path: Path, *, root: Optional[Path] = None) -> str:
+    workflow_root = root or _workflow_root(path)
+    if workflow_root is None:
+        return path.name
+
+    relative = path.resolve().relative_to(workflow_root.resolve())
+    return f"{workflow_root.name}__{'__'.join(relative.parts)}"
 
 
 def _get_workflow_dir(workflow_id: str) -> Optional[Path]:
@@ -514,7 +547,7 @@ def _build_workflow_summary(workflow_dir: Path) -> Dict[str, Any]:
         iterations = len(trajectory)
 
     return {
-        "id": workflow_dir.name,
+        "id": _workflow_id(workflow_dir),
         "path": str(workflow_dir),
         "task_id": metadata.get("task_id") or metadata.get("task_name") or workflow_dir.name,
         "task_name": metadata.get("task_name") or metadata.get("task_id") or workflow_dir.name,

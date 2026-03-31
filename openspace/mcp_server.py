@@ -126,6 +126,11 @@ _registered_skill_dirs: set = set()
 _UPLOAD_META_FILENAME = ".upload_meta.json"
 
 
+def _normalize_skill_dir(path_str: str) -> str:
+    """Return a canonical string form for a skill directory path."""
+    return str(Path(path_str).expanduser().resolve())
+
+
 async def _get_openspace():
     """Lazy-initialise the OpenSpace engine."""
     global _openspace_instance
@@ -296,8 +301,9 @@ async def _auto_register_skill_dirs(skill_dirs: List[str]) -> int:
         store = _get_store()
         db_created = await store.sync_from_registry(added)
 
-    is_first = any(d not in _registered_skill_dirs for d in skill_dirs)
-    for d in skill_dirs:
+    normalized_valid_dirs = [_normalize_skill_dir(str(d)) for d in valid_dirs]
+    is_first = any(d not in _registered_skill_dirs for d in normalized_valid_dirs)
+    for d in normalized_valid_dirs:
         _registered_skill_dirs.add(d)
 
     if added:
