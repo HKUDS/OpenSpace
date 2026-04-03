@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ForceGraph2D from 'react-force-graph-2d';
 import type { SkillGraphNode } from '../../hooks/useSkillEvolutionGraphData';
 
@@ -25,6 +26,7 @@ export default function SkillEvolutionGraph({
   onNodeClick,
   onBackgroundClick,
 }: SkillEvolutionGraphProps) {
+  const { t } = useTranslation();
   const graphContainerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
   const [graphDim, setGraphDim] = useState({ width: 0, height: 0 });
@@ -180,7 +182,7 @@ export default function SkillEvolutionGraph({
   }, []);
 
   if (graphData.nodes.length === 0) {
-    return <div className="text-sm text-muted p-4">No lineage graph data.</div>;
+    return <div className="text-sm text-muted p-4">{t('graph.noGraphData')}</div>;
   }
 
   return (
@@ -197,9 +199,9 @@ export default function SkillEvolutionGraph({
             const graphNode = node as SkillGraphNode;
             return [
               graphNode.name,
-              `score: ${graphNode.score.toFixed(1)}`,
-              `generation: ${graphNode.generation}`,
-              `origin: ${graphNode.origin}`,
+              t('graph.tooltipScore', { value: graphNode.score.toFixed(1) }),
+              t('graph.tooltipGeneration', { value: graphNode.generation }),
+              t('graph.tooltipOrigin', { value: graphNode.origin }),
             ].join('\n');
           }}
           onNodeClick={(node) => {

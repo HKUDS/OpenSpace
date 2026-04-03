@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { workflowsApi, type WorkflowDetail, type WorkflowTimelineEvent } from '../api';
 import { formatDate, formatInstruction } from '../utils/format';
 
@@ -46,10 +47,6 @@ function formatDurationSeconds(value?: number | null): string {
 
 function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
-}
-
-function pluralize(value: number, singular: string, plural = `${singular}s`): string {
-  return `${value} ${value === 1 ? singular : plural}`;
 }
 
 function getString(value: unknown): string | null {
@@ -367,6 +364,7 @@ function describeTimelineEvent(event: WorkflowTimelineEvent): TimelinePresentati
 }
 
 export default function WorkflowDetailPage() {
+  const { t } = useTranslation();
   const { workflowId = '' } = useParams();
   const [workflow, setWorkflow] = useState<WorkflowDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -385,7 +383,7 @@ export default function WorkflowDetailPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load workflow');
+          setError(err instanceof Error ? err.message : t('workflowDetail.failedToLoad'));
         }
       } finally {
         if (!cancelled) {
@@ -399,7 +397,7 @@ export default function WorkflowDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [workflowId]);
+  }, [workflowId, t]);
 
   const timeline = useMemo(() => {
     const events = workflow?.timeline ?? [];
@@ -464,7 +462,7 @@ export default function WorkflowDetailPage() {
     return (
       <div className="workflow-detail-page p-6">
         <div className="mx-auto max-w-[1480px]">
-          <div className="workflow-panel p-6 text-sm text-muted">Loading workflow detail…</div>
+          <div className="workflow-panel p-6 text-sm text-muted">{t('workflowDetail.loadingDetail')}</div>
         </div>
       </div>
     );
@@ -474,7 +472,7 @@ export default function WorkflowDetailPage() {
     return (
       <div className="workflow-detail-page p-6">
         <div className="mx-auto max-w-[1480px]">
-          <div className="workflow-panel p-6 text-sm text-danger">{error ?? 'Workflow not found'}</div>
+          <div className="workflow-panel p-6 text-sm text-danger">{error ?? t('workflowDetail.workflowNotFound')}</div>
         </div>
       </div>
     );
@@ -487,16 +485,16 @@ export default function WorkflowDetailPage() {
   const skillSelection = isRecord(metadata.skill_selection) ? metadata.skill_selection : null;
   const selectionMethod = skillSelection && typeof skillSelection.method === 'string' ? skillSelection.method : null;
   const executionDurationLabel = formatDurationSeconds(workflow.execution_time);
-  const selectedSkillLabel = `${pluralize(workflow.selected_skills.length, 'skill')} selected`;
-  const iterationsLabel = pluralize(workflow.iterations, 'iteration');
-  const totalStepLabel = pluralize(workflow.total_steps, 'step');
-  const actionCountLabel = pluralize(workflow.agent_action_count, 'agent action');
+  const selectedSkillLabel = t('workflowDetail.skillsSelected', { count: workflow.selected_skills.length });
+  const iterationsLabel = t('workflowDetail.iteration', { count: workflow.iterations });
+  const totalStepLabel = t('workflowDetail.step', { count: workflow.total_steps });
+  const actionCountLabel = t('workflowDetail.agentAction', { count: workflow.agent_action_count });
   const agentActionCount = timelineSummary.byType.agent_action ?? 0;
   const toolExecutionCount = timelineSummary.byType.tool_execution ?? 0;
   const latestEventLabel = timelineSummary.lastTimestamp ? formatTimeLabel(timelineSummary.lastTimestamp) : '—';
-  const timelineEventLabel = pluralize(timelineSummary.total, 'merged event');
+  const timelineEventLabel = t('workflowDetail.mergedEvent', { count: timelineSummary.total });
   const statusLabel = humanizeToken(workflow.status || 'unknown');
-  const selectionMethodLabel = selectionMethod ? humanizeToken(selectionMethod) : 'Not recorded';
+  const selectionMethodLabel = selectionMethod ? humanizeToken(selectionMethod) : t('workflowDetail.notRecorded');
   const successRateLabel = formatPercent(workflow.success_rate);
 
   return (
@@ -510,7 +508,7 @@ export default function WorkflowDetailPage() {
                   to="/workflows"
                   className="workflow-chip text-sm transition-colors hover:border-[color:var(--color-border-dark)] hover:text-ink"
                 >
-                  ← Back to Workflows
+                  {t('workflowDetail.backToWorkflows')}
                 </Link>
                 <WorkflowChip className={getStatusChipClasses(workflow.status)}>{statusLabel}</WorkflowChip>
                 <WorkflowChip>{selectedSkillLabel}</WorkflowChip>
@@ -518,36 +516,36 @@ export default function WorkflowDetailPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="workflow-kicker">Workflow detail</div>
+                <div className="workflow-kicker">{t('workflowDetail.workflowDetail')}</div>
                 <h1 className="max-w-5xl text-4xl font-semibold leading-[1.05] tracking-[-0.05em] text-ink lg:text-5xl xl:text-[3.6rem]">
                   {workflow.task_name}
                 </h1>
                 <p className="workflow-copy max-w-4xl text-lg leading-8 text-muted line-clamp-4">
-                  {formatInstruction(workflow.instruction, 480)}
+                  {formatInstruction(workflow.instruction, 480, t('format.noInstruction'))}
                 </p>
               </div>
             </div>
 
             <div className="workflow-soft-card w-full max-w-sm shrink-0 p-5 space-y-5">
               <p className="workflow-copy text-base leading-7 text-muted">
-                {`${statusLabel} run with ${iterationsLabel} and ${actionCountLabel}.`}
+                {t('workflowDetail.runDescription', { status: statusLabel, iterations: iterationsLabel, actions: actionCountLabel })}
               </p>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <div className="workflow-kicker">Started</div>
+                  <div className="workflow-kicker">{t('workflowDetail.started')}</div>
                   <div className="text-base font-medium text-ink">{formatDate(workflow.start_time)}</div>
                 </div>
                 <div className="space-y-1">
-                  <div className="workflow-kicker">Duration</div>
+                  <div className="workflow-kicker">{t('workflowDetail.duration')}</div>
                   <div className="text-base font-medium text-ink">{executionDurationLabel}</div>
                 </div>
                 <div className="space-y-1">
-                  <div className="workflow-kicker">Steps</div>
+                  <div className="workflow-kicker">{t('workflowDetail.stepsLabel')}</div>
                   <div className="text-base font-medium text-ink">{totalStepLabel}</div>
                 </div>
                 <div className="space-y-1">
-                  <div className="workflow-kicker">Latest event</div>
+                  <div className="workflow-kicker">{t('workflowDetail.latestEvent')}</div>
                   <div className="text-base font-medium text-ink">{latestEventLabel}</div>
                 </div>
               </div>
@@ -556,24 +554,24 @@ export default function WorkflowDetailPage() {
 
           <section className="workflow-metrics-row">
             <SummaryMetric
-              label="Success rate"
+              label={t('workflowDetail.successRate')}
               value={successRateLabel}
-              hint={`${pluralize(workflow.success_count, 'successful iteration')} out of ${iterationsLabel}`}
+              hint={t('workflowDetail.successRateHint', { count: workflow.success_count, iterations: iterationsLabel })}
             />
             <SummaryMetric
-              label="Iterations"
+              label={t('workflowDetail.iterations')}
               value={workflow.iterations}
-              hint={`${executionDurationLabel} total runtime`}
+              hint={t('workflowDetail.totalRuntime', { duration: executionDurationLabel })}
             />
             <SummaryMetric
-              label="Active backends"
+              label={t('workflowDetail.activeBackends')}
               value={activityEntries.length}
-              hint={topBackendEntry ? `Most active ${humanizeToken(topBackendEntry[0])} · ${topBackendEntry[1]} events` : 'No recorded tool activity'}
+              hint={topBackendEntry ? t('workflowDetail.mostActive', { backend: humanizeToken(topBackendEntry[0]), count: topBackendEntry[1] }) : t('workflowDetail.noRecordedActivity')}
             />
             <SummaryMetric
-              label="Timeline events"
+              label={t('workflowDetail.timelineEvents')}
               value={timelineSummary.total}
-              hint={`${agentActionCount} agent actions · ${toolExecutionCount} tool events`}
+              hint={t('workflowDetail.agentToolHint', { agentCount: agentActionCount, toolCount: toolExecutionCount })}
             />
           </section>
         </section>
@@ -582,8 +580,8 @@ export default function WorkflowDetailPage() {
           <div className="workflow-panel p-5 space-y-4">
             {timeline.length === 0 ? (
               <QuietEmptyState
-                title="No timeline data"
-                description="This session does not yet contain trajectory or agent action records."
+                title={t('workflowDetail.noTimelineData')}
+                description={t('workflowDetail.noTimelineDesc')}
               />
             ) : (
               <div role="list" aria-label="Workflow timeline events">
@@ -677,7 +675,7 @@ export default function WorkflowDetailPage() {
                               ) : null}
 
                               <div className="workflow-soft-card p-3.5">
-                                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">Raw event JSON</div>
+                                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{t('workflowDetail.rawEventJson')}</div>
                                 <pre className="workflow-json mt-3 whitespace-pre-wrap break-all text-xs leading-6 text-muted">
                                   {stringify(event.details)}
                                 </pre>
@@ -697,8 +695,8 @@ export default function WorkflowDetailPage() {
             <section className="workflow-panel p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="workflow-kicker">Selection</div>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">Selected skills</h2>
+                  <div className="workflow-kicker">{t('workflowDetail.selection')}</div>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">{t('workflowDetail.selectedSkills')}</h2>
                 </div>
                 {workflow.selected_skills.length > 0 ? <WorkflowChip>{workflow.selected_skills.length}</WorkflowChip> : null}
               </div>
@@ -718,42 +716,42 @@ export default function WorkflowDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <div className="text-lg font-semibold tracking-[-0.02em] text-ink">No selected skills</div>
-                  <p className="workflow-copy text-sm leading-6 text-muted">No skills were selected or recorded for this run.</p>
+                  <div className="text-lg font-semibold tracking-[-0.02em] text-ink">{t('workflowDetail.noSelectedSkills')}</div>
+                  <p className="workflow-copy text-sm leading-6 text-muted">{t('workflowDetail.noSelectedSkillsDesc')}</p>
                 </div>
               )}
             </section>
 
             <section className="workflow-panel p-5 space-y-5">
               <div>
-                <div className="workflow-kicker">Session</div>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">Overview</h2>
+                <div className="workflow-kicker">{t('workflowDetail.session')}</div>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-ink">{t('workflowDetail.overview')}</h2>
               </div>
 
               <div className="space-y-5">
-                <SidebarRow label="Task ID">
+                <SidebarRow label={t('workflowDetail.taskId')}>
                   <div className="break-all">{workflow.task_id}</div>
                 </SidebarRow>
 
-                <SidebarRow label="Runtime">
+                <SidebarRow label={t('workflowDetail.runtime')}>
                   <div>{executionDurationLabel}</div>
                   <div className="text-xs leading-6 text-muted">
                     {iterationsLabel} · {totalStepLabel} · {actionCountLabel}
                   </div>
                 </SidebarRow>
 
-                <SidebarRow label="Window">
+                <SidebarRow label={t('workflowDetail.window')}>
                   <div>{formatDate(workflow.start_time)}</div>
-                  <div className="text-xs leading-6 text-muted">Ended {formatDate(workflow.end_time)}</div>
+                  <div className="text-xs leading-6 text-muted">{t('workflowDetail.ended', { date: formatDate(workflow.end_time) })}</div>
                 </SidebarRow>
 
-                <SidebarRow label="Selection method">
+                <SidebarRow label={t('workflowDetail.selectionMethod')}>
                   <div>{selectionMethodLabel}</div>
                   <div className="text-xs leading-6 text-muted">{selectedSkillLabel}</div>
                 </SidebarRow>
 
                 {enabledBackends.length > 0 ? (
-                  <SidebarRow label="Enabled backends">
+                  <SidebarRow label={t('workflowDetail.enabledBackends')}>
                     <div className="flex flex-wrap gap-2 text-xs">
                       {enabledBackends.map((backend) => (
                         <WorkflowChip key={backend}>{humanizeToken(backend)}</WorkflowChip>
@@ -763,7 +761,7 @@ export default function WorkflowDetailPage() {
                 ) : null}
 
                 {activityEntries.length > 0 ? (
-                  <SidebarRow label="Backend activity">
+                  <SidebarRow label={t('workflowDetail.backendActivity')}>
                     <div className="flex flex-wrap gap-2 text-xs">
                       {activityEntries.map(([backend, count]) => (
                         <WorkflowChip key={backend}>{`${humanizeToken(backend)} ${count}`}</WorkflowChip>

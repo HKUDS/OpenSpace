@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import i18n from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -21,7 +22,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to reporting service
     if (import.meta.env.DEV) {
       console.error('Error caught by boundary:', error, errorInfo);
     }
@@ -29,25 +29,26 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const t = i18n.t.bind(i18n);
       return (
         this.props.fallback || (
           <div className="min-h-screen flex items-center justify-center bg-[color:var(--color-bg-page)]">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-[color:var(--color-danger)] mb-4">
-                Something went wrong
+                {t('errorBoundary.title')}
               </h1>
               <p className="text-[color:var(--color-muted)] mb-6">
-                An unexpected error occurred
+                {t('errorBoundary.message')}
               </p>
               <button
                 onClick={() => window.location.href = '/dashboard'}
                 className="btn-primary"
               >
-                Go to Dashboard
+                {t('errorBoundary.goToDashboard')}
               </button>
               {import.meta.env.DEV && this.state.error && (
                 <details className="mt-4 text-left text-xs text-[color:var(--color-muted)]">
-                  <summary>Error details</summary>
+                  <summary>{t('errorBoundary.details')}</summary>
                   <pre className="mt-2 p-4 bg-[color:var(--color-surface)] overflow-auto">
                     {this.state.error.stack}
                   </pre>

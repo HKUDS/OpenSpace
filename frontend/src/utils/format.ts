@@ -56,8 +56,9 @@ function shortenPaths(text: string, keep = 3): string {
 export function formatInstruction(
   raw: string | null | undefined,
   maxLen?: number,
+  fallback = 'No instruction captured',
 ): string {
-  if (!raw) return 'No instruction captured';
+  if (!raw) return fallback;
 
   let text = shortenPaths(raw);
 

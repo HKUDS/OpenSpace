@@ -32,7 +32,7 @@
     --radius-chip: 999px;
     --radius-card: 32px;
     --radius-card-sm: 18px;
-    --font-serif: 'Neuton', Georgia, serif;
+    --font-serif: 'Neuton', 'Noto Serif CJK SC', 'Songti SC', 'SimSun', Georgia, serif;
     --font-sans: 'Cabin', system-ui, -apple-system, sans-serif;
     --font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, 'Cascadia Code', 'Courier New', monospace;
     --shadow-hard: 4px 4px 0px 0px rgba(74, 59, 42, 0.1);

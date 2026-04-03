@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { skillsApi, type Skill, type SkillStats } from '../api';
 import EmptyState from '../components/EmptyState';
 import MetricCard from '../components/MetricCard';
@@ -7,6 +8,7 @@ import { formatDate, truncate } from '../utils/format';
 import { buildSkillClasses } from '../utils/skillClasses';
 
 export default function SkillsPage() {
+  const { t } = useTranslation();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [stats, setStats] = useState<SkillStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ export default function SkillsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load skills');
+          setError(err instanceof Error ? err.message : t('skills.failedToLoad'));
         }
       } finally {
         if (!cancelled) {
@@ -42,7 +44,7 @@ export default function SkillsPage() {
     return () => {
       cancelled = true;
     };
-  }, [sort]);
+  }, [sort, t]);
 
   const skillClasses = useMemo(() => buildSkillClasses(skills), [skills]);
 
@@ -89,37 +91,37 @@ export default function SkillsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold font-serif">Skill classes</h1>
+          <h1 className="text-3xl font-bold font-serif">{t('skills.title')}</h1>
         </div>
         <div className="flex gap-3 items-center">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, id, description, tag, or origin"
+            placeholder={t('skills.searchPlaceholder')}
             className="px-3 py-2 min-w-[320px]"
           />
           <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="px-3 py-2">
-            <option value="score">Sort by best score</option>
-            <option value="updated">Sort by updated time</option>
-            <option value="name">Sort by name</option>
+            <option value="score">{t('skills.sortByScore')}</option>
+            <option value="updated">{t('skills.sortByUpdated')}</option>
+            <option value="name">{t('skills.sortByName')}</option>
           </select>
         </div>
       </div>
 
       {stats ? (
         <section className="metrics-row">
-          <MetricCard label="Skill Classes" value={skillClasses.length} hint={`Versions: ${stats.total_skills_all}`} />
-          <MetricCard label="Active Versions" value={totalActiveVersions} hint={`With activity: ${stats.skills_with_activity}`} />
-          <MetricCard label="Average Best Score" value={averageBestScore.toFixed(1)} hint="Best node score per class" />
-          <MetricCard label="Selections" value={stats.total_selections} hint={`Completions: ${stats.total_completions}`} />
+          <MetricCard label={t('skills.skillClasses')} value={skillClasses.length} hint={t('skills.versionsHint', { count: stats.total_skills_all })} />
+          <MetricCard label={t('skills.activeVersions')} value={totalActiveVersions} hint={t('skills.withActivity', { count: stats.skills_with_activity })} />
+          <MetricCard label={t('skills.avgBestScore')} value={averageBestScore.toFixed(1)} hint={t('skills.bestNodeScoreHint')} />
+          <MetricCard label={t('skills.selections')} value={stats.total_selections} hint={t('skills.completionsHint', { count: stats.total_completions })} />
         </section>
       ) : null}
 
-      {loading ? <div className="text-sm text-muted">Loading skills…</div> : null}
+      {loading ? <div className="text-sm text-muted">{t('skills.loadingSkills')}</div> : null}
       {error ? <div className="text-sm text-danger">{error}</div> : null}
 
       {!loading && !error && filteredClasses.length === 0 ? (
-        <EmptyState title="No skills match" description="Try another keyword, or execute tasks so new skill telemetry lands in SQLite." />
+        <EmptyState title={t('skills.noSkillsMatch')} description={t('skills.noSkillsMatchDesc')} />
       ) : null}
 
       {!loading && !error && filteredClasses.length > 0 ? (
@@ -137,18 +139,18 @@ export default function SkillsPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-3xl font-bold font-serif leading-none">{skillClass.best_score.toFixed(1)}</div>
-                  <div className="text-xs text-muted">best score</div>
+                  <div className="text-xs text-muted">{t('skills.bestScore')}</div>
                 </div>
               </div>
 
               <div className="text-sm text-muted">
-                {truncate(skillClass.representative.description || 'No class description', 160)}
+                {truncate(skillClass.representative.description || t('skills.noClassDescription'), 160)}
               </div>
 
               <div className="grid grid-cols-4 gap-3 text-xs text-muted">
-                <div>{skillClass.version_count} versions</div>
-                <div>{skillClass.active_count} active</div>
-                <div>{skillClass.total_selections} selections</div>
+                <div>{t('skills.versions', { count: skillClass.version_count })}</div>
+                <div>{t('skills.active', { count: skillClass.active_count })}</div>
+                <div>{t('skills.selectionsCount', { count: skillClass.total_selections })}</div>
                 <div>{formatDate(skillClass.latest_updated)}</div>
               </div>
 
@@ -160,7 +162,7 @@ export default function SkillsPage() {
                   <span key={`${skillClass.class_id}-${tag}`} className="tag px-2 py-1">{tag}</span>
                 ))}
                 {skillClass.tags.length > 5 ? (
-                  <span className="tag px-2 py-1">+{skillClass.tags.length - 5} tags</span>
+                  <span className="tag px-2 py-1">{t('common.tags', { count: skillClass.tags.length - 5 })}</span>
                 ) : null}
               </div>
             </Link>

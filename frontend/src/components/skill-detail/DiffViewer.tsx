@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { DiffFile, DiffLine } from '../../utils/diffParser';
 
 interface DiffViewerProps {
@@ -124,6 +125,7 @@ function buildSplitRows(lines: DiffLine[], header: string): SplitDiffRow[] {
 }
 
 export default function DiffViewer({ files }: DiffViewerProps) {
+  const { t } = useTranslation();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const renderableFiles = useMemo(
     () => files.filter((file) => file.hunks.some((hunk) => hunk.lines.length > 0)),
@@ -135,7 +137,7 @@ export default function DiffViewer({ files }: DiffViewerProps) {
   }, [renderableFiles]);
 
   if (renderableFiles.length === 0) {
-    return <p className="text-[color:var(--color-muted)] text-sm">No files in diff</p>;
+    return <p className="text-[color:var(--color-muted)] text-sm">{t('diffViewer.noFiles')}</p>;
   }
 
   const activeIndex = selectedIndex < renderableFiles.length ? selectedIndex : 0;
@@ -216,8 +218,8 @@ export default function DiffViewer({ files }: DiffViewerProps) {
             return (
               <div key={`${activeFile.path}-hunk-${hunkIdx}`}>
                 <div className="sticky top-0 z-10 grid grid-cols-[1fr_1fr] border-y border-[color:var(--color-ink)] bg-[#CBCADB] px-3 py-1.5 text-[color:var(--color-muted)] select-none">
-                  <div>Old</div>
-                  <div>New</div>
+                  <div>{t('diffViewer.old')}</div>
+                  <div>{t('diffViewer.new')}</div>
                 </div>
                 <div className="sticky top-[29px] z-10 border-b border-[color:var(--color-border-dark)] bg-[color:var(--color-surface)] px-3 py-1 text-[color:var(--color-muted)] select-none">
                   {hunk.header}
