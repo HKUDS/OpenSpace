@@ -54,12 +54,20 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
         # and the model name doesn't already carry that prefix, prepend
         # it so that litellm uses the correct request format (OpenAI-
         # compatible for gateways vs native for direct providers).
+        # Skip when the user explicitly provided a model (via OPENSPACE_MODEL
+        # or --model) AND explicit OPENSPACE_LLM_* overrides — the user knows
+        # exactly which endpoint they want to hit.
         _GATEWAY_PROVIDERS = {"openrouter", "aihubmix", "siliconflow"}
+        _has_explicit_llm_override = bool(
+            os.environ.get("OPENSPACE_LLM_API_BASE")
+            or os.environ.get("OPENSPACE_LLM_API_KEY")
+        )
         if (
             forced_provider
             and forced_provider in _GATEWAY_PROVIDERS
             and resolved_model
             and not resolved_model.lower().startswith(f"{forced_provider}/")
+            and not (model and _has_explicit_llm_override)
         ):
             resolved_model = f"{forced_provider}/{resolved_model}"
             logger.info(
@@ -101,6 +109,31 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
     # Default model fallback
     if not resolved_model:
         resolved_model = "openrouter/anthropic/claude-sonnet-4.5"
+
+    # Provider-specific adjustments for litellm routing
+    if resolved_model and "minimax" in resolved_model.lower():
+        final_key = kwargs.get("api_key")
+        final_base = kwargs.get("api_base", "")
+
+        if final_key:
+            os.environ.setdefault("MINIMAX_API_KEY", final_key)
+        if final_base:
+            os.environ.setdefault("MINIMAX_API_BASE", final_base)
+
+        # api.minimaxi.com (domestic) is OpenAI-compatible but does not fully
+        # support litellm's minimax-specific request transformations (e.g. tool
+        # calling format).  Switch to the generic openai/ prefix so litellm
+        # sends standard OpenAI-format requests that minimaxi.com accepts.
+        if (
+            resolved_model.lower().startswith("minimax/")
+            and "minimaxi.com" in final_base
+        ):
+            original = resolved_model
+            resolved_model = "openai/" + resolved_model.split("/", 1)[1]
+            logger.info(
+                "Switched model prefix for minimaxi.com compat: %s -> %s",
+                original, resolved_model,
+            )
 
     if kwargs:
         safe = {

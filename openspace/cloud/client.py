@@ -5,6 +5,7 @@ All methods are **synchronous** (use ``urllib``).  In async contexts
 
 Provides both low-level HTTP operations and higher-level workflows:
   - ``fetch_record`` / ``download_artifact`` / ``fetch_metadata``
+  - ``search_record_embeddings``
   - ``stage_artifact`` / ``create_record``
   - ``upload_skill`` (stage → diff → create — full workflow)
   - ``import_skill`` (fetch → download → extract — full workflow)
@@ -29,6 +30,7 @@ logger = logging.getLogger("openspace.cloud")
 
 SKILL_FILENAME = "SKILL.md"
 SKILL_ID_FILENAME = ".skill_id"
+RECORD_EMBEDDING_SEARCH_MAX_LIMIT = 300
 
 _TEXT_EXTENSIONS = frozenset({
     ".md", ".txt", ".yaml", ".yml", ".json", ".py", ".sh", ".toml",
@@ -141,6 +143,33 @@ class OpenSpaceClient:
                 break
 
         return all_items
+
+    def search_record_embeddings(
+        self,
+        *,
+        query: str,
+        limit: int = RECORD_EMBEDDING_SEARCH_MAX_LIMIT,
+        level: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """POST /records/embeddings/search — fetch server-ranked embedding rows."""
+        search_request_payload: Dict[str, Any] = {
+            "query": query,
+            "limit": limit,
+        }
+        if level:
+            search_request_payload["level"] = level
+        if tags:
+            search_request_payload["tags"] = tags
+
+        _, response_body = self._request(
+            "POST",
+            "/records/embeddings/search",
+            body=json.dumps(search_request_payload).encode("utf-8"),
+            extra_headers={"Content-Type": "application/json"},
+            timeout=30,
+        )
+        return json.loads(response_body.decode("utf-8"))
 
     def stage_artifact(self, skill_dir: Path) -> tuple[str, int]:
         """POST /artifacts/stage — upload skill files.
@@ -340,7 +369,11 @@ class OpenSpaceClient:
         record_data = self.fetch_record(skill_id)
         skill_name = record_data.get("name", skill_id)
 
-        skill_dir = target_dir / skill_name
+        if "/" in skill_name or "\\" in skill_name or skill_name.startswith("."):
+            skill_name = skill_id
+        skill_dir = (target_dir / skill_name).resolve()
+        if not skill_dir.is_relative_to(target_dir.resolve()):
+            raise CloudError(f"Skill name {skill_name!r} escapes target directory")
 
         # Check if already exists locally
         if skill_dir.exists() and (skill_dir / SKILL_FILENAME).exists():
@@ -401,6 +434,7 @@ class OpenSpaceClient:
     def _extract_zip(zip_data: bytes, target_dir: Path) -> List[str]:
         """Extract zip bytes to target directory with path traversal protection."""
         extracted: List[str] = []
+        resolved_target = target_dir.resolve()
         try:
             with zipfile.ZipFile(io.BytesIO(zip_data)) as zf:
                 for info in zf.infolist():
@@ -409,7 +443,9 @@ class OpenSpaceClient:
                     clean_name = Path(info.filename).as_posix()
                     if clean_name.startswith("..") or clean_name.startswith("/"):
                         continue
-                    target_path = target_dir / clean_name
+                    target_path = (target_dir / clean_name).resolve()
+                    if not target_path.is_relative_to(resolved_target):
+                        continue
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     target_path.write_bytes(zf.read(info))
                     extracted.append(clean_name)

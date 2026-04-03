@@ -406,6 +406,95 @@ class LLMClient:
         self._logger = Logger.get_logger(__name__)
         self._last_call_time = 0.0
     
+    @staticmethod
+    def _merge_consecutive_system_messages(messages: List[Dict]) -> List[Dict]:
+        """Merge consecutive system messages into one.
+
+        Providers like MiniMax reject requests that contain multiple consecutive
+        messages with the same role (error 2013 "invalid chat setting").
+        Merging is safe for all providers — it simply concatenates the content.
+        """
+        if not messages:
+            return messages
+        merged: List[Dict] = []
+        for msg in messages:
+            if (
+                merged
+                and msg.get("role") == "system"
+                and merged[-1].get("role") == "system"
+            ):
+                merged[-1] = {
+                    "role": "system",
+                    "content": merged[-1].get("content", "") + "\n\n" + msg.get("content", ""),
+                }
+            else:
+                merged.append(msg.copy())
+        return merged
+
+    @staticmethod
+    def _is_minimax_model(model: str) -> bool:
+        return isinstance(model, str) and "minimax" in model.lower()
+
+    @classmethod
+    def _rewrite_nonleading_system_messages_for_minimax(
+        cls,
+        messages: List[Dict],
+    ) -> List[Dict]:
+        """Rewrite non-leading system messages into internal user notes for MiniMax."""
+        rewritten: List[Dict] = []
+        rewritten_count = 0
+
+        for msg in messages:
+            msg_copy = msg.copy()
+            if msg_copy.get("role") == "system" and rewritten:
+                content = msg_copy.get("content", "")
+                if isinstance(content, str):
+                    msg_copy["content"] = (
+                        "[INTERNAL ORCHESTRATION NOTE]\n"
+                        "This note was originally injected as a system message by the "
+                        "agent runtime. Treat it as workflow guidance, not as a new "
+                        "end-user request.\n\n"
+                        f"{content}"
+                    )
+                msg_copy["role"] = "user"
+                rewritten_count += 1
+            rewritten.append(msg_copy)
+
+        if rewritten_count:
+            logger.info(
+                "Rewrote %d non-leading system message(s) for MiniMax compatibility",
+                rewritten_count,
+            )
+
+        return rewritten
+
+    @classmethod
+    def _normalize_messages_for_model(cls, messages: List[Dict], model: str) -> List[Dict]:
+        """Normalize message history only when a provider requires it."""
+        if not cls._is_minimax_model(model):
+            return messages
+
+        minimized_system_history = cls._merge_consecutive_system_messages(messages)
+        return cls._rewrite_nonleading_system_messages_for_minimax(
+            minimized_system_history
+        )
+
+    @staticmethod
+    def _serialize_response_field(value):
+        """Convert provider response fields into plain Python containers."""
+        if hasattr(value, "model_dump"):
+            return value.model_dump(exclude_none=True)
+        if isinstance(value, list):
+            return [LLMClient._serialize_response_field(item) for item in value]
+        if isinstance(value, tuple):
+            return [LLMClient._serialize_response_field(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                key: LLMClient._serialize_response_field(item)
+                for key, item in value.items()
+            }
+        return value
+
     async def _rate_limit(self):
         """Apply rate limiting by adding delay between API calls"""
         if self.rate_limit_delay > 0:
@@ -539,6 +628,7 @@ class LLMClient:
             "model": kwargs.get("model", self.model),
             **self.litellm_kwargs,
         }
+        request_model = completion_kwargs["model"]
         
         # Add thinking/reasoning_effort only if explicitly enabled and not using tools
         enable_thinking = kwargs.get("enable_thinking", self.enable_thinking)
@@ -561,10 +651,16 @@ class LLMClient:
         if enable_thinking:
             completion_kwargs["reasoning_effort"] = kwargs.get("reasoning_effort", "medium")
         
-        # 4. Apply rate limiting
+        # 4. Normalize messages for providers with stricter role constraints.
+        current_messages = self._normalize_messages_for_model(
+            current_messages,
+            request_model,
+        )
+
+        # 5. Apply rate limiting
         await self._rate_limit()
         
-        # 5. Call LLM with retry (single round)
+        # 6. Call LLM with retry (single round)
         completion_kwargs["messages"] = current_messages
         response = await self._call_with_retry(**completion_kwargs)
         
@@ -578,6 +674,11 @@ class LLMClient:
             "role": "assistant",
             "content": response_message.content or "",
         }
+
+        for field_name in ("reasoning_details", "reasoning_content", "name"):
+            field_value = getattr(response_message, field_name, None)
+            if field_value:
+                assistant_message[field_name] = self._serialize_response_field(field_value)
         
         tool_calls = getattr(response_message, 'tool_calls', None)
         if tool_calls:
@@ -722,6 +823,10 @@ class LLMClient:
                 "content": summary_prompt
             }
             current_messages.append(summary_message)
+            current_messages = self._normalize_messages_for_model(
+                current_messages,
+                request_model,
+            )
             
             # Apply rate limiting before summary call
             await self._rate_limit()
@@ -729,7 +834,7 @@ class LLMClient:
             # Call LLM to generate summary (without tools)
             summary_kwargs = {
                 **self.litellm_kwargs,
-                "model": self.model,
+                "model": request_model,
                 "messages": current_messages,
                 "tools": [], 
                 "tool_choice": "none",

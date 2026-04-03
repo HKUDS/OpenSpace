@@ -321,16 +321,41 @@ async def refresh_mcp_cache(config_path: Optional[str] = None):
 
 def _load_config(args) -> OpenSpaceConfig:
     """Load configuration"""
+    import os
+    from openspace.host_detection import build_llm_kwargs, build_grounding_config_path
+
     cli_overrides = {}
-    if args.model:
-        cli_overrides['llm_model'] = args.model
     if args.max_iterations is not None:
         cli_overrides['grounding_max_iterations'] = args.max_iterations
     if args.timeout is not None:
         cli_overrides['llm_timeout'] = args.timeout
     if args.log_level:
         cli_overrides['log_level'] = args.log_level
-    
+
+    # Resolve LLM model & credentials
+    #   CLI --model  >  OPENSPACE_MODEL env  >  host-agent auto-detect  >  default
+    env_model = args.model or os.environ.get("OPENSPACE_MODEL", "")
+    model, llm_kwargs = build_llm_kwargs(env_model)
+    cli_overrides['llm_model'] = model
+    cli_overrides['llm_kwargs'] = llm_kwargs
+
+    max_iter = int(os.environ.get("OPENSPACE_MAX_ITERATIONS", "20"))
+    enable_rec = os.environ.get("OPENSPACE_ENABLE_RECORDING", "true").lower() in ("true", "1", "yes")
+    backend_scope_raw = os.environ.get("OPENSPACE_BACKEND_SCOPE")
+    backend_scope = (
+        [b.strip() for b in backend_scope_raw.split(",") if b.strip()]
+        if backend_scope_raw else None
+    )
+    config_path = build_grounding_config_path()
+
+    if 'grounding_max_iterations' not in cli_overrides:
+        cli_overrides['grounding_max_iterations'] = max_iter
+    cli_overrides['enable_recording'] = enable_rec
+    if backend_scope is not None:
+        cli_overrides['backend_scope'] = backend_scope
+    if config_path:
+        cli_overrides['grounding_config_path'] = config_path
+
     try:
         # Load from config file if provided
         if args.config:
@@ -338,18 +363,17 @@ def _load_config(args) -> OpenSpaceConfig:
             with open(args.config, 'r', encoding='utf-8') as f:
                 config_dict = json.load(f)
             
-            # Apply CLI overrides
+            # Apply CLI / env overrides
             config_dict.update(cli_overrides)
             config = OpenSpaceConfig(**config_dict)
             
             print(f"✓ Loaded from config file: {args.config}")
         else:
-            # Use default config + CLI overrides
             config = OpenSpaceConfig(**cli_overrides)
             print("✓ Using default configuration")
         
-        if cli_overrides:
-            print(f"✓ CLI overrides: {', '.join(cli_overrides.keys())}")
+        if args.model:
+            print(f"✓ CLI overrides: llm_model")
         
         if args.log_level:
             Logger.set_level(args.log_level)

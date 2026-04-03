@@ -18,6 +18,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("openspace.cloud")
+CLOUD_EMBEDDING_SEARCH_MAX_LIMIT = 300
 
 
 def _check_safety(text: str) -> list[str]:
@@ -159,36 +160,43 @@ class SkillSearchEngine:
         from openspace.cloud.embedding import cosine_similarity
 
         scored = []
-        for c in candidates:
-            name = c.get("name", "")
-            slug = c.get("skill_id", name).split("__")[0].replace(":", "-")
+        for candidate in candidates:
+            candidate_name = candidate.get("name", "")
+            candidate_slug = candidate.get("skill_id", candidate_name).split("__")[0].replace(":", "-")
 
-            # Vector score
-            vector_score = 0.0
+            # Vector score. If client-side query embeddings are unavailable,
+            # reuse the server-side cloud rank so cloud results keep semantic signal.
+            vector_score: Optional[float] = None
+            ranking_signal_score = 0.0
             if query_embedding:
-                skill_emb = c.get("_embedding")
-                if skill_emb and isinstance(skill_emb, list):
-                    vector_score = cosine_similarity(query_embedding, skill_emb)
+                candidate_embedding = candidate.get("_embedding")
+                if candidate_embedding and isinstance(candidate_embedding, list):
+                    vector_score = cosine_similarity(query_embedding, candidate_embedding)
+                    ranking_signal_score = vector_score
+            elif isinstance(candidate.get("_search_rank"), (int, float)):
+                ranking_signal_score = float(candidate["_search_rank"])
 
             # Lexical boost
-            lexical = _lexical_boost(query_tokens, name, slug)
+            lexical_boost = _lexical_boost(query_tokens, candidate_name, candidate_slug)
 
-            final_score = vector_score + lexical
+            final_score = ranking_signal_score + lexical_boost
 
-            entry: Dict[str, Any] = {
-                "skill_id": c.get("skill_id", ""),
-                "name": name,
-                "description": c.get("description", ""),
-                "source": c.get("source", ""),
+            result_entry: Dict[str, Any] = {
+                "skill_id": candidate.get("skill_id", ""),
+                "name": candidate_name,
+                "description": candidate.get("description", ""),
+                "source": candidate.get("source", ""),
                 "score": round(final_score, 4),
             }
-            if vector_score > 0:
-                entry["vector_score"] = round(vector_score, 4)
+            if vector_score is not None and vector_score > 0:
+                result_entry["vector_score"] = round(vector_score, 4)
+            if isinstance(candidate.get("_search_rank"), (int, float)):
+                result_entry["server_search_rank"] = round(float(candidate["_search_rank"]), 4)
             # Include optional fields
             for key in ("path", "visibility", "created_by", "origin", "tags", "quality", "safety_flags"):
-                if c.get(key):
-                    entry[key] = c[key]
-            scored.append(entry)
+                if candidate.get(key):
+                    result_entry[key] = candidate[key]
+            scored.append(result_entry)
 
         scored.sort(key=lambda x: -x["score"])
         return scored
@@ -275,45 +283,83 @@ def build_local_candidates(
 
 
 def build_cloud_candidates(
-    items: List[Dict[str, Any]],
+    cloud_items: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """Build search candidate dicts from cloud metadata items.
+    """Build search candidate dicts from cloud metadata/search items.
 
     Args:
-        items: Items from ``OpenSpaceClient.fetch_metadata()``.
+        cloud_items: Items from cloud metadata or embedding search endpoints.
 
     Returns:
         List of candidate dicts (with safety filtering applied).
     """
     candidates: List[Dict[str, Any]] = []
-    for item in items:
-        name = item.get("name", "")
-        desc = item.get("description", "")
-        tags = item.get("tags", [])
-        safety_text = f"{name}\n{desc}\n{' '.join(tags)}"
+    for item in cloud_items:
+        candidate_name = item.get("name", "")
+        candidate_description = item.get("description", "")
+        candidate_tags = item.get("tags", [])
+        safety_text = f"{candidate_name}\n{candidate_description}\n{' '.join(candidate_tags)}"
         flags = _check_safety(safety_text)
         if not _is_safe(flags):
             continue
 
-        c_entry: Dict[str, Any] = {
+        candidate_entry: Dict[str, Any] = {
             "skill_id": item.get("record_id", ""),
-            "name": name,
-            "description": desc,
+            "name": candidate_name,
+            "description": candidate_description,
             "source": "cloud",
             "visibility": item.get("visibility", "public"),
             "is_local": False,
             "created_by": item.get("created_by", ""),
             "origin": item.get("origin", ""),
-            "tags": tags,
+            "tags": candidate_tags,
             "safety_flags": flags if flags else None,
         }
         # Carry pre-computed embedding
-        platform_emb = item.get("embedding")
-        if platform_emb and isinstance(platform_emb, list):
-            c_entry["_embedding"] = platform_emb
-        candidates.append(c_entry)
+        server_embedding = item.get("embedding")
+        if server_embedding and isinstance(server_embedding, list):
+            candidate_entry["_embedding"] = server_embedding
+        server_search_rank = item.get("search_rank")
+        if isinstance(server_search_rank, (int, float)):
+            candidate_entry["_search_rank"] = float(server_search_rank)
+        candidates.append(candidate_entry)
 
     return candidates
+
+
+def build_cloud_results(
+    cloud_search_items: List[Dict[str, Any]],
+    *,
+    limit: int,
+) -> List[Dict[str, Any]]:
+    """Map server-ranked cloud search rows to MCP search result shape."""
+    results: List[Dict[str, Any]] = []
+    seen_names: set[str] = set()
+
+    for candidate in build_cloud_candidates(cloud_search_items):
+        candidate_name = candidate.get("name", "")
+        dedupe_name = candidate_name or candidate.get("skill_id", "")
+        if dedupe_name in seen_names:
+            continue
+        seen_names.add(dedupe_name)
+
+        entry: Dict[str, Any] = {
+            "skill_id": candidate.get("skill_id", ""),
+            "name": candidate_name,
+            "description": candidate.get("description", ""),
+            "source": "cloud",
+            "score": round(float(candidate.get("_search_rank", 0.0)), 4),
+        }
+        if isinstance(candidate.get("_search_rank"), (int, float)):
+            entry["server_search_rank"] = round(float(candidate["_search_rank"]), 4)
+        for key in ("visibility", "created_by", "origin", "tags", "safety_flags"):
+            if candidate.get(key):
+                entry[key] = candidate[key]
+        results.append(entry)
+        if len(results) >= limit:
+            break
+
+    return results
 
 
 async def hybrid_search_skills(
@@ -341,8 +387,8 @@ async def hybrid_search_skills(
     """
     from openspace.cloud.embedding import generate_embedding
 
-    q = query.strip()
-    if not q:
+    normalized_query = query.strip()
+    if not normalized_query:
         return []
 
     candidates: List[Dict[str, Any]] = []
@@ -357,16 +403,16 @@ async def hybrid_search_skills(
 
             auth_headers, api_base = get_openspace_auth()
             if auth_headers:
-                client = OpenSpaceClient(auth_headers, api_base)
-                try:
-                    from openspace.cloud.embedding import resolve_embedding_api
-                    has_emb = bool(resolve_embedding_api()[0])
-                except Exception:
-                    has_emb = False
-                items = await asyncio.to_thread(
-                    client.fetch_metadata, include_embedding=has_emb, limit=200,
+                cloud_client = OpenSpaceClient(auth_headers, api_base)
+                cloud_result_limit = limit if source == "cloud" else CLOUD_EMBEDDING_SEARCH_MAX_LIMIT
+                cloud_search_items = await asyncio.to_thread(
+                    cloud_client.search_record_embeddings,
+                    query=normalized_query,
+                    limit=cloud_result_limit,
                 )
-                candidates.extend(build_cloud_candidates(items))
+                if source == "cloud":
+                    return build_cloud_results(cloud_search_items, limit=limit)
+                candidates.extend(build_cloud_candidates(cloud_search_items))
         except Exception as e:
             logger.warning(f"hybrid_search_skills: cloud unavailable: {e}")
 
@@ -376,18 +422,17 @@ async def hybrid_search_skills(
     # query embedding (optional — key/URL resolved inside generate_embedding)
     query_embedding: Optional[List[float]] = None
     try:
-        query_embedding = await asyncio.to_thread(generate_embedding, q)
+        query_embedding = await asyncio.to_thread(generate_embedding, normalized_query)
         if query_embedding:
-            for c in candidates:
-                if not c.get("_embedding") and c.get("_embedding_text"):
-                    emb = await asyncio.to_thread(
-                        generate_embedding, c["_embedding_text"],
+            for candidate in candidates:
+                if not candidate.get("_embedding") and candidate.get("_embedding_text"):
+                    candidate_embedding = await asyncio.to_thread(
+                        generate_embedding, candidate["_embedding_text"],
                     )
-                    if emb:
-                        c["_embedding"] = emb
+                    if candidate_embedding:
+                        candidate["_embedding"] = candidate_embedding
     except Exception:
         pass
 
     engine = SkillSearchEngine()
-    return engine.search(q, candidates, query_embedding=query_embedding, limit=limit)
-
+    return engine.search(normalized_query, candidates, query_embedding=query_embedding, limit=limit)

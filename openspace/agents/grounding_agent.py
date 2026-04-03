@@ -120,6 +120,7 @@ class GroundingAgent(BaseAgent):
             logger.info(f"Skill registry attached ({count} skill(s) available for mid-iteration retrieval)")
 
     _MAX_SINGLE_CONTENT_CHARS = 30_000
+    _ITERATION_GUIDANCE_PREFIX = "[INTERNAL ORCHESTRATION NOTE]"
 
     @classmethod
     def _cap_message_content(cls, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -414,13 +415,19 @@ class GroundingAgent(BaseAgent):
                     
                     # Remove previous iteration guidance to avoid accumulation
                     messages = [
-                        msg for msg in messages 
-                        if not (msg.get("role") == "system" and "Iteration" in msg.get("content", "") and "complete" in msg.get("content", ""))
+                        msg for msg in messages
+                        if not (
+                            isinstance(msg.get("content"), str)
+                            and msg.get("content", "").startswith(self._ITERATION_GUIDANCE_PREFIX)
+                        )
                     ]
                     
+                    # MiniMax rejects system messages injected mid-conversation,
+                    # so runtime guidance is sent as an internal user note.
                     guidance_msg = {
-                        "role": "system",
-                        "content": f"Iteration {current_iteration} complete. "
+                        "role": "user",
+                        "content": f"{self._ITERATION_GUIDANCE_PREFIX}\n"
+                                   f"Iteration {current_iteration} complete. "
                                    f"Check if task is finished - if yes, output {GroundingAgentPrompts.TASK_COMPLETE}. "
                                    f"If not, continue with next action."
                     }

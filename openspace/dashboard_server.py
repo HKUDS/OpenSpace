@@ -419,6 +419,18 @@ def _build_lineage_payload(skill_id: str, store: SkillStore) -> Dict[str, Any]:
     }
 
 
+def _workflow_id(workflow_dir: Path) -> str:
+    """Stable short ID for a workflow directory, unique across roots.
+
+    Uses a hash suffix derived from the resolved path to avoid collisions
+    when directory names contain the separator character.
+    """
+    import hashlib
+    resolved = str(workflow_dir.resolve())
+    path_hash = hashlib.sha256(resolved.encode()).hexdigest()[:8]
+    return f"{workflow_dir.name}_{path_hash}"
+
+
 def _discover_workflow_dirs() -> List[Path]:
     discovered: Dict[str, Path] = {}
     for root in WORKFLOW_ROOTS:
@@ -439,14 +451,14 @@ def _scan_workflow_tree(directory: Path, discovered: Dict[str, Path], *, _depth:
         if not child.is_dir():
             continue
         if (child / "metadata.json").exists() or (child / "traj.jsonl").exists():
-            discovered.setdefault(child.name, child)
+            discovered.setdefault(str(child.resolve()), child)
         else:
             _scan_workflow_tree(child, discovered, _depth=_depth + 1, _max_depth=_max_depth)
 
 
 def _get_workflow_dir(workflow_id: str) -> Optional[Path]:
     for path in _discover_workflow_dirs():
-        if path.name == workflow_id:
+        if _workflow_id(path) == workflow_id:
             return path
     return None
 
@@ -464,7 +476,7 @@ def _build_workflow_summary(workflow_dir: Path) -> Dict[str, Any]:
     for candidate in video_candidates:
         if candidate.exists():
             rel = candidate.relative_to(workflow_dir).as_posix()
-            video_url = url_for("workflow_artifact", workflow_id=workflow_dir.name, artifact_path=rel)
+            video_url = url_for("workflow_artifact", workflow_id=_workflow_id(workflow_dir), artifact_path=rel)
             break
 
     outcome = metadata.get("execution_outcome") or {}
@@ -514,7 +526,7 @@ def _build_workflow_summary(workflow_dir: Path) -> Dict[str, Any]:
         iterations = len(trajectory)
 
     return {
-        "id": workflow_dir.name,
+        "id": _workflow_id(workflow_dir),
         "path": str(workflow_dir),
         "task_id": metadata.get("task_id") or metadata.get("task_name") or workflow_dir.name,
         "task_name": metadata.get("task_name") or metadata.get("task_id") or workflow_dir.name,

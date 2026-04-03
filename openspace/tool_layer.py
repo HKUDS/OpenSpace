@@ -507,6 +507,7 @@ class OpenSpace:
                     f"Executing with GroundingAgent "
                     f"(max {max_iterations} iterations, no skills)..."
                 )
+                execution_context["max_iterations"] = max_iterations
                 result = await self._grounding_agent.process(execution_context)
 
             execution_time = asyncio.get_event_loop().time() - start_time

@@ -1,5 +1,5 @@
 # OpenSpace core dependencies
-litellm>=1.70.0
+litellm>=1.70.0,<1.82.7  # pinned to avoid PYSEC-2026-2 supply-chain compromise (1.82.7/1.82.8 were malicious)
 python-dotenv>=1.0.0
 openai>=1.0.0
 jsonschema>=4.25.0
