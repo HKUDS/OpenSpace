@@ -19,6 +19,8 @@ from openspace.utils.logging import Logger
 
 logger = Logger.get_logger(__name__)
 
+MANDATORY_SKILL_NAME = "default-utf8-encoding"
+
 
 @dataclass
 class OpenSpaceConfig:
@@ -704,6 +706,20 @@ class OpenSpace:
                 "available_skills": [s.skill_id for s in self._skill_registry.list_skills()],
                 "selected": [],
             }
+
+        # Always inject built-in UTF-8 baseline guidance when available.
+        forced_skill_ids: List[str] = []
+        forced_meta = self._skill_registry.get_skill_by_name(MANDATORY_SKILL_NAME)
+        if forced_meta:
+            already_selected = {s.skill_id for s in selected}
+            if forced_meta.skill_id not in already_selected:
+                selected.insert(0, forced_meta)
+            forced_skill_ids.append(forced_meta.skill_id)
+            logger.debug(f"Forced baseline skill: {forced_meta.skill_id}")
+
+        if selection_record is not None and forced_skill_ids:
+            selection_record["forced_skills"] = forced_skill_ids
+            selection_record["selected"] = [s.skill_id for s in selected]
 
         # Record skill selection to metadata.json
         if self._recording_manager and selection_record:
