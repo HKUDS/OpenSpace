@@ -340,7 +340,17 @@ class SkillRanker:
             try:
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
-                    return data.get("data", [{}])[0].get("embedding")
+                    
+                    data_list = data.get("data")
+                    if not data_list or not isinstance(data_list, list):
+                        logger.warning(f"Invalid embedding API response: missing 'data' array")
+                        return None
+                             
+                    embedding = data_list[0].get("embedding")
+                    if not embedding:
+                        logger.warning("Embedding API response missing 'embedding' field in first result")
+                        return None
+                    return embedding
             except Exception as e:
                 last_err = e
                 if attempt < 2:

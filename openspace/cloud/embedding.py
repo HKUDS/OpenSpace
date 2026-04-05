@@ -121,9 +121,25 @@ def generate_embedding(text: str, api_key: Optional[str] = None) -> Optional[Lis
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return data.get("data", [{}])[0].get("embedding")
-    except Exception as e:
-        logger.warning("Embedding generation failed: %s", e)
-        return None
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        
+        # 验证 API 响应结构
+        data_list = data.get("data")
+        if not data_list or not isinstance(data_list, list) or len(data_list) == 0:
+            logger.warning("Embedding API response missing or invalid 'data' array")
+            return None
+        
+        embedding = data_list[0].get("embedding")
+        if not embedding:
+            logger.warning("Embedding API response missing 'embedding' field")
+            return None
+        
+        return embedding
+except urllib.error.HTTPError as e:
+    logger.warning(f"Embedding API HTTP error: {e.code} {e.reason}")
+    return None
+except Exception as e:
+    logger.warning("Embedding generation failed: %s", e)
+    return None
+

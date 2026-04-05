@@ -775,8 +775,8 @@ class LLMClient:
                     
                     args_str = json.dumps(args, ensure_ascii=False)[:200]
                     self._logger.info(f"Calling {tool_name} with args: {args_str}")
-                except:
-                    pass
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    self._logger.debug(f"Failed to parse tool arguments for {tool_name}: {e}")
                 
                 if tool_obj is None:
                     if ambiguous_tool_names:
