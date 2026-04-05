@@ -169,9 +169,10 @@ def _infer_backend_from_tool_name(tool_name: str) -> Optional[str]:
     if not tool_name or not isinstance(tool_name, str):
         return None
     name = tool_name.strip()
-    # Dedup format: "server__toolname" -> use suffix
+    # Dedup format: "server__toolname" -> use suffix.
+    # Use rsplit to handle server names that themselves contain "__".
     if "__" in name:
-        name = name.split("__", 1)[-1]
+        name = name.rsplit("__", 1)[-1]
     shell_tools = {"shell_agent", "read_file", "write_file", "list_dir", "run_shell"}
     if name in shell_tools:
         return "shell"

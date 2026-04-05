@@ -242,6 +242,9 @@ class SkillStore:
         If the main DB file is empty (0 bytes) but WAL/SHM companions
         exist, the database is unrecoverable — delete the companions
         so SQLite can start fresh.
+
+        Safety: check that no other process currently has the DB open
+        before removing WAL/SHM, to avoid corrupting concurrent writes.
         """
         if not self._db_path.exists():
             return
@@ -250,6 +253,19 @@ class SkillStore:
         if self._db_path.stat().st_size == 0 and (
             wal.exists() or shm.exists()
         ):
+            # Verify no other process holds the database open.
+            import sqlite3
+            try:
+                test_conn = sqlite3.connect(str(self._db_path), timeout=0.1)
+                test_conn.execute("PRAGMA journal_mode")
+                test_conn.close()
+            except sqlite3.OperationalError:
+                logger.info(
+                    "DB appears locked by another process — "
+                    "skipping WAL/SHM cleanup to avoid corruption"
+                )
+                return
+
             logger.warning(
                 "Empty DB with WAL/SHM — removing for crash recovery"
             )

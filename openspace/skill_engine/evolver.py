@@ -201,6 +201,7 @@ class SkillEvolver:
         # evolved for each degraded tool.  Keyed by tool_key.
         # Pruned when a tool leaves the problematic list (= recovered).
         self._addressed_degradations: Dict[str, Set[str]] = {}
+        self._degradation_lock = asyncio.Lock()
 
         # Track background tasks so they can be awaited on shutdown.
         self._background_tasks: Set[asyncio.Task] = set()
@@ -219,7 +220,10 @@ class SkillEvolver:
                 f"Waiting for {len(self._background_tasks)} background "
                 f"evolution task(s) to finish..."
             )
-            await asyncio.gather(*self._background_tasks, return_exceptions=True)
+            results = await asyncio.gather(*self._background_tasks, return_exceptions=True)
+            for r in results:
+                if isinstance(r, BaseException):
+                    logger.warning(f"Background evolution task failed during shutdown: {r}")
             self._background_tasks.clear()
 
     async def evolve(self, ctx: EvolutionContext) -> Optional[SkillRecord]:
@@ -306,6 +310,13 @@ class SkillEvolver:
         if not problematic_tools:
             return []
 
+        async with self._degradation_lock:
+            return await self._process_tool_degradation_locked(problematic_tools)
+
+    async def _process_tool_degradation_locked(
+        self, problematic_tools: List,
+    ) -> List[SkillRecord]:
+        """Inner body of process_tool_degradation, called under _degradation_lock."""
         # Prune recovered tools: if a tool_key used to be tracked but is
         # no longer in the current problematic list, it recovered — clear
         # its addressed set so future re-degradation gets a fresh pass.
