@@ -84,13 +84,17 @@ def _correct_skill_ids(
             if prefix and k.split("__")[0] == prefix
         ]
 
-        best, best_dist = None, 4  # threshold: edit distance ≤ 3
+        # Adaptive threshold: tighten when many candidates share the prefix
+        max_dist = 2 if len(candidates) > 20 else 4  # ≤1 or ≤3
+        best, best_dist, ambiguous = None, max_dist, False
         for cand in candidates:
             d = _edit_distance(raw_id, cand)
             if d < best_dist:
-                best, best_dist = cand, d
+                best, best_dist, ambiguous = cand, d, False
+            elif d == best_dist and cand != best:
+                ambiguous = True  # multiple candidates at same distance
 
-        if best is not None:
+        if best is not None and not ambiguous:
             logger.info(
                 f"Corrected LLM skill ID: {raw_id!r} → {best!r} "
                 f"(edit_distance={best_dist})"
