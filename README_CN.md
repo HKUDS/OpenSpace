@@ -297,30 +297,198 @@ npm run dev
 
 ### 🐳 Docker 容器化部署
 
-为了避免配置本地 Python 和 Node.js 环境，你可以使用 Docker 容器化运行 OpenSpace。我们提供了一个 `docker-compose.yml` 用于一键部署。
+为了避免配置本地 Python 和 Node.js 环境，你可以使用 Docker 容器化运行 OpenSpace。我们提供了完整的 docker-compose 配置，包含生产级监控、日志轮转、资源限制和健康检查。
+
+#### 快速部署（开发环境）
+
+这是最简单的启动方式，适合开发和快速测试：
 
 ```bash
-# 克隆仓库
+# 1. 克隆仓库
 git clone https://github.com/HKUDS/OpenSpace.git
 cd OpenSpace
 
-# 配置环境变量
+# 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件，填入你的 API 密钥
+# 编辑 .env，填入你的 LLM API 密钥
 
-# 启动容器
+# 3. 启动容器
 docker-compose up -d --build
+
+# 4. 验证状态
+docker-compose ps
 ```
 
-启动完成后，你可以通过浏览器访问 [http://localhost:7788](http://localhost:7788) 打开 OpenSpace Dashboard。
+启动成功后，访问：
+- **Dashboard**: http://localhost:7788
+- **API 服务**: http://localhost:7777
 
-如果需要执行命令行操作或者配置数据卷持久化，请参阅详细的 [Docker 部署指南 (DOCKER.md)](./DOCKER.md)。
+#### 生产部署
 
-## 📈 基准测试：GDPVal
+生产环境建议使用 `docker-compose.prod.yml` 覆盖配置：
 
-我们在 [GDPVal](https://huggingface.co/datasets/openai/gdpval) 上评估 OpenSpace——该数据集包含 220 项真实世界的专业任务，涵盖 44 个职业——采用 [ClawWork](https://github.com/HKUDS/ClawWork) 评测协议，使用相同的生产力工具和基于 LLM 的评分方式。我们的两阶段设计（Cold Start → Warm Rerun）展示了积累的 Skill 如何随时间降低 Token 消耗。
+```bash
+# 使用生产配置启动
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
-公平基准：OpenSpace 使用 Qwen 3.5-Plus 作为骨干 LLM——与 ClawWork 基线 Agent 完全相同——确保性能差异纯粹来源于 Skill 进化，而非模型能力差异。
+# 查看日志（实时）
+docker-compose logs -f
+
+# 查看资源使用
+docker stats
+```
+
+生产配置特点：
+- ✅ **资源限制严格**：CPU 限制 4 核，内存限制 4G
+- ✅ **日志管理**：50MB 每文件，保留 5 个轮转文件
+- ✅ **健康检查**：自动检测容器健康状况
+- ✅ **数据持久化**：使用 Docker named volumes 或 bind mounts
+
+#### Docker 配置详解
+
+我们的 Docker 配置基于最佳实践，包含以下关键特性：
+
+**🔒 安全性增强：**
+- 非 root 用户 `appuser` 运行容器
+- 应用与系统目录分离
+- 最小化镜像层，减少攻击面
+
+**💡 资源管理：**
+- CPU 和内存限制（可配置）
+- 健康检查端点 `/health`
+- 合理的重启策略（on-failure）
+
+**📊 日志管理：**
+- JSON 格式日志，便于日志收集系统解析
+- 日志轮转配置，防止磁盘写满
+- 支持 stdout/stderr 分离
+
+**📁 数据卷：**
+
+```yaml
+volumes:
+  - .openspace:/app/.openspace    # 技能数据库和 embedding 缓存
+  - logs:/app/logs                # 日志持久化
+  - ./data:/app/data              # 可选：自定义数据目录（bind mount）
+```
+
+**🔌 服务与端口：**
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| `openspace` (Dashboard) | 7788 | Web UI 和 API 服务 |
+| `openspace-cli` | - | CLI 命令行工具 |
+
+#### 环境变量配置（.env）
+
+所有配置项说明请参考 `.env.example`：
+
+```bash
+# --- 必填项 ---
+OPENAI_API_KEY=sk-xxx              # 或使用其他 LLM 提供商
+OPENSPACE_MODEL=gpt-4o             # 选择的模型
+# 或使用通用 litellm 格式：OPENSPACE_MODEL=anthropic/claude-3-7-sonnet
+
+# --- Docker 调优（可选）---
+HOST_PORT=7788                     # 前端访问端口，默认 7788
+OPENSPACE_WORKSPACE=/app          # 工作区路径（Docker 内）
+OPENSPACE_LOG_LEVEL=INFO          # 日志级别：DEBUG/INFO/WARNING
+
+# --- 云端功能（可选）---
+OPENSPACE_API_KEY=sk-xxx           # 用于云端技能社区
+```
+
+#### 端口管理
+
+为避免端口冲突，你可以：
+1. 在 `.env` 中修改 `HOST_PORT` 环境变量
+2. 或在 `docker-compose.override.yml` 中覆盖服务配置
+3. 使用 `docker-compose port` 查看实际映射的端口
+
+> ⚠️ **注意**：确保所选端口未被其他容器占用。运行 `docker ps` 查看已使用的端口。
+
+#### 自定义 Docker 网络（推荐生产使用）
+
+为提升安全性和隔离性，建议创建自定义网络：
+
+```bash
+# 创建 bridge 网络
+docker network create openspace-network
+
+# 编辑 docker-compose.yml，在每个服务中添加：
+# networks:
+#   - openspace-network
+#
+# networks:
+#   openspace-network:
+#     driver: bridge
+```
+
+#### 数据持久化与备份
+
+我们的配置使用 Docker volumes 自动持久化数据。备份方法：
+
+```bash
+# 备份技能数据库
+docker run --rm -v openspace_openspace_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/openspace-backup-$(date +%Y%m%d).tar.gz -C /data .
+
+# 恢复技能数据库
+docker run --rm -v openspace_openspace_data:/data -v $(pwd):/backup \
+  alpine sh -c "cd /data && tar xzf /backup/openspace-backup-*.tar.gz"
+```
+
+#### 监控集成
+
+默认配置已包含 Prometheus 监控标签。你可以：
+1. 确保 `PROMETHEUS_JOB=openspace` 环境变量已设置
+2. 将以下 job 配置添加到你的 `prometheus.yml`：
+
+```yaml
+scrape_configs:
+  - job_name: 'openspace'
+    static_configs:
+      - targets: ['openspace:7788']  # 使用 Docker 内部服务名
+```
+
+#### 故障排查
+
+**容器无法启动：**
+```bash
+# 查看容器日志
+docker-compose logs openspace
+
+# 检查端口冲突
+docker-compose port openspace 7788
+
+# 进入容器调试
+docker-compose exec openspace bash
+```
+
+**API 密钥问题：**
+```bash
+# 验证环境变量
+docker-compose exec openspace env | grep -i openai
+# 或验证 LLM 配置
+docker-compose exec openspace python -c "from openspace.llm import get_llm; print(get_llm())"
+```
+
+**性能问题：**
+```bash
+# 查看资源使用
+docker stats openspace
+
+# 检查数据库大小
+docker-compose exec openspace du -sh /app/.openspace/
+```
+
+**端口冲突：** 在 `.env` 中使用 `HOST_PORT` 指定未使用的端口。运行 `docker ps` 查看已占用端口。
+
+**完整备份/恢复、自定义网络、监控集成等详细信息**，请参阅 **[DOCKER.md](./DOCKER.md)**。
+
+**其他文档：**
+- **[环境变量参考](openspace/config/README.md)** — 所有配置选项
+- **[技能系统指南](openspace/skills/README.md)** — 自定义技能公平基准：OpenSpace 使用 Qwen 3.5-Plus 作为骨干 LLM——与 ClawWork 基线 Agent 完全相同——确保性能差异纯粹来源于 Skill 进化，而非模型能力差异。
 
 真实经济价值：任务涵盖构建工资计算器、准备纳税申报表、起草法律备忘录等——这些都是产生真实 GDP 的专业工作，同时从质量和成本效率两个维度进行评估。
 
