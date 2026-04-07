@@ -7,6 +7,12 @@ This guide covers **agent-specific setup** for integrating OpenSpace. For instal
 - For **nanobot**, prefer **SSE** if you want OpenSpace to run as a standalone server.
 - For **openclaw**, prefer **streamable-http** for remote HTTP transport.
 
+**Common remote endpoints:**
+- Start `openspace-mcp --transport sse --host 127.0.0.1 --port 8080` and use `http://127.0.0.1:8080/sse`
+- Start `openspace-mcp --transport streamable-http --host 127.0.0.1 --port 8081` and use `http://127.0.0.1:8081/mcp`
+
+The endpoint is common; the **host config syntax is not**. nanobot uses `tools.mcpServers`, while openclaw uses `openclaw mcp set`.
+
 **Pick your agent:**
 
 | Agent | Setup Guide |
@@ -49,18 +55,7 @@ cp -r host_skills/delegate-task/ /path/to/nanobot/nanobot/skills/
 > [!TIP]
 > LLM credentials are auto-detected from nanobot's `providers.*` config — no need to set `OPENSPACE_LLM_API_KEY`.
 
-### 3. Option B: standalone SSE server
-
-If you prefer nanobot to connect to a long-running remote MCP server instead of spawning a stdio child process each time, start OpenSpace yourself:
-
-```bash
-OPENSPACE_HOST_SKILL_DIRS=/path/to/nanobot/nanobot/skills \
-OPENSPACE_WORKSPACE=/path/to/OpenSpace \
-OPENSPACE_API_KEY=sk-xxx \
-openspace-mcp --transport sse --host 127.0.0.1 --port 8080
-```
-
-Then point nanobot at the SSE endpoint:
+### 3. Option B: remote HTTP transport
 
 ```json
 {
@@ -76,7 +71,7 @@ Then point nanobot at the SSE endpoint:
 }
 ```
 
-If you prefer streamable HTTP instead, nanobot can also use:
+Or:
 
 ```json
 {
@@ -117,17 +112,6 @@ mcporter config add openspace --command "openspace-mcp" \
 ```
 
 ### 3. Option B: remote HTTP transport
-
-openclaw can also store a remote MCP server definition instead of spawning a local stdio process. Start OpenSpace separately:
-
-```bash
-OPENSPACE_HOST_SKILL_DIRS=/path/to/openclaw/skills \
-OPENSPACE_WORKSPACE=/path/to/OpenSpace \
-OPENSPACE_API_KEY=sk-xxx \
-openspace-mcp --transport streamable-http --host 127.0.0.1 --port 8081
-```
-
-Then register the remote server in OpenClaw:
 
 ```bash
 openclaw mcp set openspace '{"url":"http://127.0.0.1:8081/mcp","transport":"streamable-http","connectionTimeoutMs":10000}'

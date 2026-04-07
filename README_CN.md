@@ -198,10 +198,14 @@ openspace-mcp --help   # 验证安装
 > [!NOTE]
 > OpenSpace 支持 3 种启动方式：
 > - **stdio**：在宿主配置里保留 `command: "openspace-mcp"`。
-> - **SSE**：先启动 `openspace-mcp --transport sse --host 127.0.0.1 --port 8080`，再让宿主连接 `http://127.0.0.1:8080/sse`。
-> - **streamable HTTP**：先启动 `openspace-mcp --transport streamable-http --host 127.0.0.1 --port 8081`，再让宿主连接 `http://127.0.0.1:8081/mcp`。
+> - **SSE**：先启动 `openspace-mcp --transport sse --host 127.0.0.1 --port 8080`。
+> - **streamable HTTP**：先启动 `openspace-mcp --transport streamable-http --host 127.0.0.1 --port 8081`。
 >
-> `stdio` 最简单。HTTP 模式会把 OpenSpace 作为独立服务常驻，但 **调用方自己的 timeout 仍然生效**。
+> 通用远端 endpoint：
+> - SSE: `http://127.0.0.1:8080/sse`
+> - streamable HTTP: `http://127.0.0.1:8081/mcp`
+>
+> `stdio` 最简单。HTTP 模式会把 OpenSpace 作为独立服务常驻，但 **不同宿主的注册写法不同**，而且 **调用方自己的 timeout 仍然生效**。
 
 **② 将 Skill 复制**到你的 Agent Skill 目录：
 
