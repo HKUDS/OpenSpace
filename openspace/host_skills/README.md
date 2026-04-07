@@ -67,6 +67,7 @@ Then point nanobot at the SSE endpoint:
   "tools": {
     "mcpServers": {
       "openspace": {
+        "type": "sse",
         "url": "http://127.0.0.1:8080/sse",
         "toolTimeout": 1200
       }
@@ -75,7 +76,23 @@ Then point nanobot at the SSE endpoint:
 }
 ```
 
-`toolTimeout` still matters here. HTTP/SSE changes the transport, but it does **not** remove nanobot's per-call timeout for slow MCP tools.
+If you prefer streamable HTTP instead, nanobot can also use:
+
+```json
+{
+  "tools": {
+    "mcpServers": {
+      "openspace": {
+        "type": "streamableHttp",
+        "url": "http://127.0.0.1:8081/mcp",
+        "toolTimeout": 1200
+      }
+    }
+  }
+}
+```
+
+`toolTimeout` still matters here. Changing transport to `sse` or `streamableHttp` does **not** remove nanobot's per-call timeout for slow MCP tools.
 
 ---
 
