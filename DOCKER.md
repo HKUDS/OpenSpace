@@ -28,6 +28,11 @@ The easiest way to get OpenSpace running is using `docker-compose`.
    # OPENSPACE_API_KEY=your_key
    # OPENAI_API_KEY=your_key
    # ANTHROPIC_API_KEY=your_key
+   
+   # Optionally, configure custom LLM models/providers:
+   # OPENSPACE_MODEL=deepseek/deepseek-chat
+   # OPENSPACE_LLM_API_KEY=sk-xxxx
+   # OPENSPACE_LLM_API_BASE=https://api.deepseek.com/v1
    ```
 
 3. **Build and Run:**
