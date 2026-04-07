@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   openspace:
     build:
@@ -7,19 +5,64 @@ services:
       dockerfile: Dockerfile
     container_name: openspace
     ports:
-      - "7788:7788"
+      - "${HOST_PORT:-9001}:7788"
     volumes:
-      - openspace-data:/app/.openspace
-      - openspace-skills:/app/skills
+      # Use bind mounts for easier access, or named volumes for persistence
+      - ${VOLUME_TYPE:-named}:${VOLUME_DATA:-openspace-data}:/app/.openspace
+      - ${VOLUME_TYPE:-named}:${VOLUME_SKILLS:-openspace-skills}:/app/skills
+      # For bind mounts, you would use:
+      # - ./data:/app/.openspace
+      # - ./skills:/app/skills
     environment:
+      # Required: Generate a secure API key for this instance
       - OPENSPACE_API_KEY=${OPENSPACE_API_KEY:-}
+      # Optional: OpenAI API key (if using OpenAI models)
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Optional: Anthropic API key (if using Claude)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Optional: Default model to use (e.g., "claude-3-7-sonnet-latest")
       - OPENSPACE_MODEL=${OPENSPACE_MODEL:-}
+      # Optional: Custom LLM provider (like OpenRouter, local LLM)
       - OPENSPACE_LLM_API_KEY=${OPENSPACE_LLM_API_KEY:-}
       - OPENSPACE_LLM_API_BASE=${OPENSPACE_LLM_API_BASE:-}
+      # Optional: Set to "1" to enable debug logging
+      - OPENSPACE_DEBUG=${OPENSPACE_DEBUG:-0}
+      # Internal config
+      - HOST=0.0.0.0
+      - PORT=7788
+      - OPENSPACE_WORKSPACE=/app
     restart: unless-stopped
+    # Health check to ensure the service is ready
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7788/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    # Logging configuration to prevent disk fill
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Labels for monitoring and identification
+    labels:
+      - "com.openspace.service=true"
+      - "com.openspace.component=api"
+      - "com.openspace.version=${OPENSPACE_VERSION:-latest}"
 
+# Named volumes for data persistence (used when VOLUME_TYPE=named)
 volumes:
   openspace-data:
+    driver: local
   openspace-skills:
+    driver: local

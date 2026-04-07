@@ -1,0 +1,22 @@
+# Production-specific overrides for OpenSpace
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  openspace:
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '4.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+    # More aggressive log rotation for production
+    logging:
+      options:
+        max-size: "50m"
+        max-file: "5"
+    labels:
+      - "com.openspace.environment=production"
+      - "com.openspace.log-level=info"
