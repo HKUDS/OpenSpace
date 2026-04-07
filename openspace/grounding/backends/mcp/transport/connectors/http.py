@@ -30,6 +30,14 @@ from openspace.grounding.backends.mcp.transport.connectors.base import MCPBaseCo
 logger = Logger.get_logger(__name__)
 
 
+def _build_sse_candidate_urls(base_url: str) -> list[str]:
+    """Try the common FastMCP `/sse` endpoint before the raw base URL."""
+    normalized = base_url.rstrip("/")
+    if normalized.endswith("/sse"):
+        return [normalized]
+    return [f"{normalized}/sse", normalized]
+
+
 class HttpConnector(MCPBaseConnector):
     """Connector for MCP implementations using HTTP transport.
 
@@ -210,69 +218,72 @@ class HttpConnector(MCPBaseConnector):
                 except (asyncio.TimeoutError, Exception):
                     pass
 
-        # Try SSE fallback
-        try:
-            logger.debug(f"Attempting SSE fallback connection to: {self.base_url}")
-            connection_manager = SseConnectionManager(
-                self.base_url, self.headers, self.timeout, self.sse_read_timeout
-            )
-
-            # Test the connection by starting it with built-in timeout
-            read_stream, write_stream = await connection_manager.start(timeout=self.timeout)
-
-            # Create and verify ClientSession
-            test_client = ClientSession(read_stream, write_stream, sampling_callback=None)
-            
-            # Add timeout to __aenter__ - use asyncio.wait_for instead of anyio.fail_after
-            # to avoid cancel scope conflicts with background tasks
+        # Try SSE fallback. FastMCP commonly exposes legacy SSE on `/sse`,
+        # but some callers may already pass the full endpoint.
+        for sse_url in _build_sse_candidate_urls(self.base_url):
+            connection_manager = None
             try:
-                await asyncio.wait_for(test_client.__aenter__(), timeout=self.timeout)
-            except asyncio.TimeoutError:
-                raise TimeoutError(f"ClientSession enter timed out after {self.timeout}s")
+                logger.debug(f"Attempting SSE fallback connection to: {sse_url}")
+                connection_manager = SseConnectionManager(
+                    sse_url, self.headers, self.timeout, self.sse_read_timeout
+                )
 
-            try:
+                # Test the connection by starting it with built-in timeout
+                read_stream, write_stream = await connection_manager.start(timeout=self.timeout)
+
+                # Create and verify ClientSession
+                test_client = ClientSession(read_stream, write_stream, sampling_callback=None)
+
+                # Add timeout to __aenter__ - use asyncio.wait_for instead of anyio.fail_after
+                # to avoid cancel scope conflicts with background tasks
                 try:
-                    await asyncio.wait_for(test_client.initialize(), timeout=self.timeout)
+                    await asyncio.wait_for(test_client.__aenter__(), timeout=self.timeout)
                 except asyncio.TimeoutError:
-                    raise TimeoutError(f"initialize() timed out after {self.timeout}s")
-                
-                try:
-                    await asyncio.wait_for(test_client.list_tools(), timeout=self.timeout)
-                except asyncio.TimeoutError:
-                    raise TimeoutError(f"list_tools() timed out after {self.timeout}s")
-                
-                # SUCCESS! Keep the client session (don't close it, closing destroys the streams)
-                # Store it directly as the client_session for later use
-                self.transport_type = "SSE"
-                self._connection_manager = connection_manager
-                self._connection = connection_manager.get_streams()
-                self.client_session = test_client  # Reuse the working session
-                logger.debug("SSE transport selected")
-                return
-            except TimeoutError:
-                try:
-                    await asyncio.wait_for(test_client.__aexit__(None, None, None), timeout=2)
-                except (asyncio.TimeoutError, Exception):
-                    pass
-                raise
-            except Exception as init_error:
-                # Clean up the test client only on error
-                try:
-                    await asyncio.wait_for(test_client.__aexit__(None, None, None), timeout=2)
-                except (asyncio.TimeoutError, Exception):
-                    pass
-                raise init_error
+                    raise TimeoutError(f"ClientSession enter timed out after {self.timeout}s")
 
-        except Exception as e:
-            sse_error = e
-            logger.debug(f"SSE failed: {e}")
-
-            # Clean up the failed connection manager
-            if connection_manager:
                 try:
-                    await asyncio.wait_for(connection_manager.stop(), timeout=2)
-                except (asyncio.TimeoutError, Exception):
-                    pass
+                    try:
+                        await asyncio.wait_for(test_client.initialize(), timeout=self.timeout)
+                    except asyncio.TimeoutError:
+                        raise TimeoutError(f"initialize() timed out after {self.timeout}s")
+
+                    try:
+                        await asyncio.wait_for(test_client.list_tools(), timeout=self.timeout)
+                    except asyncio.TimeoutError:
+                        raise TimeoutError(f"list_tools() timed out after {self.timeout}s")
+
+                    # SUCCESS! Keep the client session (don't close it, closing destroys the streams)
+                    # Store it directly as the client_session for later use
+                    self.transport_type = "SSE"
+                    self._connection_manager = connection_manager
+                    self._connection = connection_manager.get_streams()
+                    self.client_session = test_client  # Reuse the working session
+                    logger.debug("SSE transport selected")
+                    return
+                except TimeoutError:
+                    try:
+                        await asyncio.wait_for(test_client.__aexit__(None, None, None), timeout=2)
+                    except (asyncio.TimeoutError, Exception):
+                        pass
+                    raise
+                except Exception as init_error:
+                    # Clean up the test client only on error
+                    try:
+                        await asyncio.wait_for(test_client.__aexit__(None, None, None), timeout=2)
+                    except (asyncio.TimeoutError, Exception):
+                        pass
+                    raise init_error
+
+            except Exception as e:
+                sse_error = e
+                logger.debug(f"SSE failed for {sse_url}: {e}")
+
+                # Clean up the failed connection manager
+                if connection_manager:
+                    try:
+                        await asyncio.wait_for(connection_manager.stop(), timeout=2)
+                    except (asyncio.TimeoutError, Exception):
+                        pass
 
         # Both MCP transports failed, try simple JSON-RPC HTTP as last resort
         # This is useful for custom MCP servers that don't implement proper MCP transports

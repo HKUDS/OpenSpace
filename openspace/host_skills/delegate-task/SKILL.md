@@ -5,7 +5,7 @@ description: Delegate tasks to OpenSpace — a full-stack autonomous worker for 
 
 # Delegate Tasks to OpenSpace
 
-OpenSpace is connected as an MCP server. You have 4 tools available: `execute_task`, `search_skills`, `fix_skill`, `upload_skill`.
+OpenSpace is connected as an MCP server. Whether the host uses `stdio`, `sse`, or `streamable-http`, you have the same 4 tools available: `execute_task`, `search_skills`, `fix_skill`, `upload_skill`.
 
 ## When to use
 
@@ -127,5 +127,6 @@ upload_skill(
 ## Notes
 
 - `execute_task` may take minutes — this is expected for multi-step tasks.
+- If `execute_task` times out, first check the host's MCP timeout settings. Changing from `stdio` to HTTP (`sse` or `streamable-http`) does not remove host-side per-call time limits.
 - `upload_skill` requires a cloud API key; if it fails, the evolved skill is still saved locally.
 - After every OpenSpace call, **tell the user** what happened: task result, any evolved skills, and your upload decision.

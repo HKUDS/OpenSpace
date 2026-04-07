@@ -195,6 +195,14 @@ openspace-mcp --help   # 验证安装
 > [!TIP]
 > 凭证（API 密钥、模型）会从你的 Agent 配置中**自动检测**，通常无需手动设置。
 
+> [!NOTE]
+> OpenSpace 支持 3 种启动方式：
+> - **stdio**：在宿主配置里保留 `command: "openspace-mcp"`。
+> - **SSE**：先启动 `openspace-mcp --transport sse --host 127.0.0.1 --port 8080`，再让宿主连接 `http://127.0.0.1:8080/sse`。
+> - **streamable HTTP**：先启动 `openspace-mcp --transport streamable-http --host 127.0.0.1 --port 8081`，再让宿主连接 `http://127.0.0.1:8081/mcp`。
+>
+> `stdio` 最简单。HTTP 模式会把 OpenSpace 作为独立服务常驻，但 **调用方自己的 timeout 仍然生效**。
+
 **② 将 Skill 复制**到你的 Agent Skill 目录：
 
 ```bash

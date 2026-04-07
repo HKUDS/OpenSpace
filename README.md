@@ -195,6 +195,14 @@ Works with any agent that supports skills (`SKILL.md`) — [Claude Code](https:/
 > [!TIP]
 > Credentials (API key, model) are **auto-detected** from your agent's config; you usually don't need to set them manually.
 
+> [!NOTE]
+> OpenSpace supports 3 launch modes:
+> - **stdio**: keep `command: "openspace-mcp"` in the host config.
+> - **SSE**: start `openspace-mcp --transport sse --host 127.0.0.1 --port 8080`, then point the host to `http://127.0.0.1:8080/sse`.
+> - **streamable HTTP**: start `openspace-mcp --transport streamable-http --host 127.0.0.1 --port 8081`, then point the host to `http://127.0.0.1:8081/mcp`.
+>
+> `stdio` is the simplest option. HTTP modes keep OpenSpace as a standalone server, but **host-side timeouts still apply**.
+
 **② Copy skills** into your agent's skills directory:
 
 ```bash

@@ -7,8 +7,9 @@ Exposes the following tools to MCP clients:
   upload_skill   — Upload a local skill to cloud (pre-saved metadata, bot decides visibility)
 
 Usage:
-    python -m openspace.mcp_server                     # stdio (default)
+    python -m openspace.mcp_server                     # auto (TTY -> SSE, MCP host -> stdio)
     python -m openspace.mcp_server --transport sse     # SSE on port 8080
+    python -m openspace.mcp_server --transport streamable-http  # Streamable HTTP on port 8080
     python -m openspace.mcp_server --port 9090         # SSE on custom port
 
 Environment variables: see ``openspace/host_detection/`` and ``openspace/cloud/auth.py``.
@@ -900,14 +901,77 @@ def run_mcp_server() -> None:
     """Console-script entry point for ``openspace-mcp``."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="OpenSpace MCP Server")
-    parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio")
-    parser.add_argument("--port", type=int, default=8080)
-    args = parser.parse_args()
+    def _port_flag_was_set(argv: list[str]) -> bool:
+        return any(arg == "--port" or arg.startswith("--port=") for arg in argv)
 
-    if args.transport == "sse":
-        mcp.run(transport="sse", sse_params={"port": args.port})
+    def _parse_port_from_env(default: int = 8080) -> int:
+        raw_port = os.environ.get("OPENSPACE_MCP_PORT", "").strip()
+        if not raw_port:
+            return default
+        try:
+            return int(raw_port)
+        except ValueError:
+            logger.warning(
+                "Ignoring invalid OPENSPACE_MCP_PORT=%r; falling back to %d.",
+                raw_port,
+                default,
+            )
+            return default
+
+    def _parse_host_from_env(default: str = "127.0.0.1") -> str:
+        return os.environ.get("OPENSPACE_MCP_HOST", "").strip() or default
+
+    def _resolve_transport(requested_transport: str, argv: list[str]) -> str:
+        if requested_transport in ("stdio", "sse", "streamable-http"):
+            return requested_transport
+
+        env_transport = os.environ.get("OPENSPACE_MCP_TRANSPORT", "").strip().lower()
+        if env_transport:
+            if env_transport in ("stdio", "sse", "streamable-http"):
+                return env_transport
+            logger.warning(
+                "Ignoring invalid OPENSPACE_MCP_TRANSPORT=%r; expected 'stdio', 'sse', or 'streamable-http'.",
+                env_transport,
+            )
+
+        # Treat an explicit port override as an HTTP/SSE intent. This keeps the
+        # CLI behavior aligned with the usage examples above.
+        if _port_flag_was_set(argv):
+            return "sse"
+
+        stdin_is_tty = hasattr(sys.stdin, "isatty") and sys.stdin.isatty()
+        stdout_is_tty = _real_stdout.isatty()
+        return "sse" if stdin_is_tty and stdout_is_tty else "stdio"
+
+    argv = sys.argv[1:]
+    parser = argparse.ArgumentParser(description="OpenSpace MCP Server")
+    parser.add_argument(
+        "--transport",
+        choices=["auto", "stdio", "sse", "streamable-http"],
+        default="auto",
+    )
+    parser.add_argument("--host", default=_parse_host_from_env())
+    parser.add_argument("--port", type=int, default=_parse_port_from_env())
+    args = parser.parse_args(argv)
+
+    transport = _resolve_transport(args.transport, argv)
+
+    if transport == "sse":
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        logger.info("Starting OpenSpace MCP server with SSE transport on port %s", args.port)
+        mcp.run(transport="sse")
+    elif transport == "streamable-http":
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        logger.info(
+            "Starting OpenSpace MCP server with streamable HTTP transport on %s:%s",
+            args.host,
+            args.port,
+        )
+        mcp.run(transport="streamable-http")
     else:
+        logger.info("Starting OpenSpace MCP server with stdio transport")
         mcp.run(transport="stdio")
 
 
