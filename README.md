@@ -135,6 +135,7 @@ On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)
   - [🤖 Path A: For Your Agent](#-path-a-for-your-agent)
   - [👤 Path B: As Your Co-Worker](#-path-b-as-your-co-worker)
   - [📊 Local Dashboard](#-local-dashboard)
+- [🐳 Docker Deployment](#-docker-deployment)
 - [📈 Benchmark: GDPVal](#-benchmark-gdpval)
 - [📊 Showcase: My Daily Monitor](#-showcase-my-daily-monitor)
 - [🏗️ Framework](#️-framework)
@@ -293,6 +294,27 @@ npm run dev
 </div>
 
 ---
+
+### 🐳 Docker Deployment
+
+To deploy OpenSpace without worrying about local Python and Node.js dependencies, you can use the official Docker image. We provide a `docker-compose.yml` for an easy, single-command setup.
+
+```bash
+# Clone the repository
+git clone https://github.com/HKUDS/OpenSpace.git
+cd OpenSpace
+
+# Setup your API keys
+cp .env.example .env
+# Edit .env with your LLM API keys
+
+# Start the container
+docker-compose up -d --build
+```
+
+The OpenSpace Dashboard is now available at [http://localhost:7788](http://localhost:7788).
+
+For detailed CLI and volume configurations, check out the [Docker Deployment Guide (DOCKER.md)](./DOCKER.md).
 
 ## 📈 Benchmark: GDPVal
 

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  openspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openspace
+    ports:
+      - "7788:7788"
+    volumes:
+      - openspace-data:/app/.openspace
+      - openspace-skills:/app/skills
+    environment:
+      - OPENSPACE_API_KEY=${OPENSPACE_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+
+volumes:
+  openspace-data:
+  openspace-skills:

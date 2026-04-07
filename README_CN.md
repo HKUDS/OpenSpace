@@ -135,6 +135,7 @@ Skill 能够自动学习并持续提升
   - [🤖 路径 A：为你的 Agent 接入](#-路径-a为你的-agent-接入)
   - [👤 路径 B：作为你的 AI 协作者](#-路径-b作为你的-ai-协作者)
   - [📊 本地仪表盘](#-本地仪表盘)
+- [🐳 Docker 容器化部署](#-docker-部署)
 - [📈 基准测试：GDPVal](#-基准测试gdpval)
 - [📊 案例展示：My Daily Monitor](#-案例展示my-daily-monitor)
 - [🏗️ 框架](#️-框架)
@@ -293,6 +294,27 @@ npm run dev
 </div>
 
 ---
+
+### 🐳 Docker 容器化部署
+
+为了避免配置本地 Python 和 Node.js 环境，你可以使用 Docker 容器化运行 OpenSpace。我们提供了一个 `docker-compose.yml` 用于一键部署。
+
+```bash
+# 克隆仓库
+git clone https://github.com/HKUDS/OpenSpace.git
+cd OpenSpace
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入你的 API 密钥
+
+# 启动容器
+docker-compose up -d --build
+```
+
+启动完成后，你可以通过浏览器访问 [http://localhost:7788](http://localhost:7788) 打开 OpenSpace Dashboard。
+
+如果需要执行命令行操作或者配置数据卷持久化，请参阅详细的 [Docker 部署指南 (DOCKER.md)](./DOCKER.md)。
 
 ## 📈 基准测试：GDPVal
 
