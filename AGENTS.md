@@ -45,3 +45,24 @@ Recommended user-facing invocation:
 ```text
 对当前这轮工作做一次 sidecar 自进化。不要改代码，不要接管任务。请调用 openspace_evolution.evolve_from_context，基于当前对话、git diff 和关键改动，自动提炼 task/summary，最多生成 1 个高复用 skill，并告诉我 skill 名称、路径、为什么值得保留。
 ```
+
+## New Project Bootstrap
+
+If the user wants this sidecar workflow in a new repository, treat it as a project bootstrap task first.
+
+Bootstrap order:
+- Add or update a project launcher before relying on sidecar evolution.
+- Point `OPENSPACE_WORKSPACE` at the new repository root.
+- Keep the user's main Codex Desktop workflow unchanged.
+- Do not modify global `~/.codex` defaults unless the user explicitly asks.
+
+Expected bootstrap outputs:
+- a project-level launcher such as `scripts/codex-desktop-evolution`
+- a project-level `AGENTS.md` section documenting the sidecar trigger phrases
+- sidecar skill output routed to `~/.codex-openspace-desktop/projects/<project-name>/skills`
+
+When a user asks to initialize a new project for this workflow, default to:
+- creating the launcher first
+- wiring `OPENSPACE_WORKSPACE` to the repository root
+- preserving the normal Codex Desktop login path
+- only then enabling phrases like `sidecar 自进化一下`

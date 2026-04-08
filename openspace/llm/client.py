@@ -179,6 +179,63 @@ async def _openai_compat_stream_completion(
     )
 
 
+def _classify_retryable_error(error_text: str) -> tuple[bool, bool, bool]:
+    is_rate_limit = any(
+        keyword in error_text
+        for keyword in ['rate limit', 'rate_limit', 'too many requests', '429']
+    )
+    is_overloaded = any(
+        keyword in error_text
+        for keyword in ['overloaded', '500', '502', '503', '504', 'internal server error', 'service unavailable']
+    )
+    is_connection_error = any(
+        keyword in error_text
+        for keyword in ['cannot connect', 'connection refused', 'connection reset',
+                        'connectionerror', 'timeout', 'name resolution',
+                        'temporary failure', 'network unreachable']
+    )
+    return is_rate_limit, is_overloaded, is_connection_error
+
+
+def _retry_backoff(error_text: str, attempt: int) -> tuple[str, int]:
+    is_rate_limit, _is_overloaded, is_connection_error = _classify_retryable_error(error_text)
+    if is_rate_limit:
+        return "Rate limit", 60 + (attempt * 30)
+    if is_connection_error:
+        return "Connection", min(10 * (2 ** attempt), 60)
+    return "Server overload", min(5 * (2 ** attempt), 60)
+
+
+def _should_retry_completion_error(exc: Exception) -> bool:
+    error_text = str(exc).lower()
+    return any(
+        keyword in error_text
+        for keyword in [
+            'rate limit', 'rate_limit', 'too many requests', '429',
+            'overloaded', '500', '502', '503', '504', 'internal server error',
+            'service unavailable', 'cannot connect', 'connection refused',
+            'connection reset', 'connectionerror', 'timeout', 'name resolution',
+            'temporary failure', 'network unreachable'
+        ]
+    )
+
+
+def _should_use_nonstream_compat_only(completion_kwargs: Optional[Dict] = None) -> bool:
+    return False
+
+
+async def _execute_openai_compat_completion(completion_kwargs: Dict, timeout: float):
+    return await _openai_compat_stream_completion(
+        model=completion_kwargs["model"],
+        messages=completion_kwargs["messages"],
+        timeout=timeout,
+        litellm_kwargs=completion_kwargs,
+        tools=completion_kwargs.get("tools"),
+        tool_choice=completion_kwargs.get("tool_choice"),
+        reasoning_effort=completion_kwargs.get("reasoning_effort"),
+    )
+
+
 def _sanitize_schema(params: Dict) -> Dict:
     """Sanitize tool parameter schema to comply with Claude API requirements.
     
@@ -724,15 +781,7 @@ class LLMClient:
                 # Add timeout to the completion call
                 if _should_use_openai_stream_compat(completion_kwargs):
                     response = await asyncio.wait_for(
-                        _openai_compat_stream_completion(
-                            model=completion_kwargs["model"],
-                            messages=completion_kwargs["messages"],
-                            timeout=self.timeout,
-                            litellm_kwargs=completion_kwargs,
-                            tools=completion_kwargs.get("tools"),
-                            tool_choice=completion_kwargs.get("tool_choice"),
-                            reasoning_effort=completion_kwargs.get("reasoning_effort"),
-                        ),
+                        _execute_openai_compat_completion(completion_kwargs, self.timeout),
                         timeout=self.timeout,
                     )
                 else:
@@ -757,35 +806,10 @@ class LLMClient:
                 last_exception = e
                 error_str = str(e).lower()
                 
-                # Check if it's a retryable error
-                is_rate_limit = any(
-                    keyword in error_str 
-                    for keyword in ['rate limit', 'rate_limit', 'too many requests', '429']
-                )
-                
-                is_overloaded = any(
-                    keyword in error_str
-                    for keyword in ['overloaded', '500', '502', '503', '504', 'internal server error', 'service unavailable']
-                )
-                
-                is_connection_error = any(
-                    keyword in error_str
-                    for keyword in ['cannot connect', 'connection refused', 'connection reset',
-                                    'connectionerror', 'timeout', 'name resolution',
-                                    'temporary failure', 'network unreachable']
-                )
-                
-                if attempt < self.max_retries - 1 and (is_rate_limit or is_overloaded or is_connection_error):
-                    if is_rate_limit:
-                        backoff_delay = 60 + (attempt * 30)  # 60s, 90s, 120s
-                        error_type = "Rate limit"
-                    elif is_connection_error:
-                        backoff_delay = min(10 * (2 ** attempt), 60)  # 10s, 20s, 40s, max 60s
-                        error_type = "Connection"
-                    else:
-                        backoff_delay = min(5 * (2 ** attempt), 60)  # 5s, 10s, 20s, max 60s
-                        error_type = "Server overload"
-                    
+                is_rate_limit, is_overloaded, is_connection_error = _classify_retryable_error(error_str)
+
+                if attempt < self.max_retries - 1 and _should_retry_completion_error(e):
+                    error_type, backoff_delay = _retry_backoff(error_str, attempt)
                     self._logger.warning(
                         f"{error_type} error (attempt {attempt + 1}/{self.max_retries}), "
                         f"waiting {backoff_delay}s before retry..."
