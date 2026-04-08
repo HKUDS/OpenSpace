@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="$REPO_ROOT/openspace/.env"
+PRIMARY_CODEX_HOME="${PRIMARY_CODEX_HOME:-$HOME/.codex}"
+PROFILE_HOME="${CODEX_HOME:-$HOME/.codex-openspace}"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Missing $ENV_FILE" >&2
+  exit 1
+fi
+
+set -a
+source "$ENV_FILE"
+set +a
+
+if [[ -z "${OPENSPACE_LLM_API_KEY:-}" ]]; then
+  echo "OPENSPACE_LLM_API_KEY is missing in $ENV_FILE" >&2
+  exit 1
+fi
+
+OPENSPACE_MODEL="${OPENSPACE_MODEL:-gpt-5.4}"
+OPENSPACE_LLM_API_BASE="${OPENSPACE_LLM_API_BASE:-https://codexapi.space/v1}"
+OPENSPACE_LLM_OPENAI_STREAM_COMPAT="${OPENSPACE_LLM_OPENAI_STREAM_COMPAT:-true}"
+
+sync_profile_dir() {
+  local name="$1"
+  local src="$PRIMARY_CODEX_HOME/$name"
+  local dst="$PROFILE_HOME/$name"
+
+  if [[ ! -d "$src" ]]; then
+    return
+  fi
+
+  if [[ -L "$dst" ]]; then
+    rm -f "$dst"
+  fi
+
+  mkdir -p "$dst"
+  rsync -a --delete "$src/" "$dst/"
+}
+
+bootstrap_profile_home() {
+  mkdir -p "$PROFILE_HOME"
+
+  sync_profile_dir "plugins"
+  sync_profile_dir "skills"
+  sync_profile_dir "pua"
+
+  cat > "$PROFILE_HOME/auth.json" <<EOF
+{
+  "OPENAI_API_KEY": "$OPENSPACE_LLM_API_KEY"
+}
+EOF
+
+  cat > "$PROFILE_HOME/config.toml" <<EOF
+model_provider = "codexapi"
+model = "$OPENSPACE_MODEL"
+model_context_window = 272000
+model_auto_compact_token_limit = 220000
+model_reasoning_effort = "xhigh"
+model_verbosity = "high"
+personality = "pragmatic"
+network_access = "enabled"
+disable_response_storage = true
+windows_wsl_setup_acknowledged = true
+
+[projects."$REPO_ROOT"]
+trust_level = "trusted"
+
+[mcp_servers.zotero]
+enabled = false
+type = "stdio"
+command = "/Users/admin/.local/bin/zotero-mcp"
+
+[mcp_servers.zotero.env]
+ZOTERO_LOCAL = "true"
+
+[mcp_servers.playwright]
+type = "stdio"
+command = "npx"
+args = ["@playwright/mcp@latest", "--user-data-dir=/Users/admin/Library/Caches/ms-playwright/codex-mcp-chrome"]
+
+[mcp_servers.figma]
+url = "https://mcp.figma.com/mcp"
+enabled = true
+
+[mcp_servers.linear]
+enabled = false
+url = "https://mcp.linear.app/mcp"
+
+[mcp_servers.openspace]
+command = "$REPO_ROOT/.venv/bin/openspace-mcp"
+args = ["--transport", "stdio"]
+
+[mcp_servers.openspace.env]
+OPENSPACE_HOST_SKILL_DIRS = "$PROFILE_HOME/skills"
+OPENSPACE_WORKSPACE = "$REPO_ROOT"
+OPENSPACE_MODEL = "$OPENSPACE_MODEL"
+OPENSPACE_LLM_API_KEY = "$OPENSPACE_LLM_API_KEY"
+OPENSPACE_LLM_API_BASE = "$OPENSPACE_LLM_API_BASE"
+OPENSPACE_LLM_OPENAI_STREAM_COMPAT = "$OPENSPACE_LLM_OPENAI_STREAM_COMPAT"
+
+[model_providers.codexapi]
+name = "codexapi"
+base_url = "$OPENSPACE_LLM_API_BASE"
+wire_api = "responses"
+requires_openai_auth = false
+
+[features]
+multi_agent = true
+
+[plugins."github@openai-curated"]
+enabled = true
+
+[plugins."build-web-apps@openai-curated"]
+enabled = true
+
+[plugins."figma@openai-curated"]
+enabled = true
+EOF
+}
+
+bootstrap_profile_home
+
+if [[ "${1:-}" == "app" ]]; then
+  shift
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    exec env CODEX_HOME="$PROFILE_HOME" codex app "$@"
+  fi
+  exec env CODEX_HOME="$PROFILE_HOME" codex app "$@" "$REPO_ROOT"
+fi
+
+exec env CODEX_HOME="$PROFILE_HOME" codex -C "$REPO_ROOT" "$@"

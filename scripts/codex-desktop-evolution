@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="$REPO_ROOT/openspace/.env"
+PRIMARY_CODEX_HOME="${PRIMARY_CODEX_HOME:-$HOME/.codex}"
+PROFILE_HOME="${OPENSPACE_CODEX_HOME:-$HOME/.codex-openspace-desktop}"
+PROJECT_NAME="$(basename "$REPO_ROOT")"
+PROJECT_SKILL_DIR="$PROFILE_HOME/projects/$PROJECT_NAME/skills"
+REPO_PYTHON="$REPO_ROOT/.venv/bin/python"
+
+if [[ ! -f "$PRIMARY_CODEX_HOME/config.toml" ]]; then
+  echo "Missing $PRIMARY_CODEX_HOME/config.toml" >&2
+  exit 1
+fi
+
+if [[ ! -f "$PRIMARY_CODEX_HOME/auth.json" ]]; then
+  echo "Missing $PRIMARY_CODEX_HOME/auth.json" >&2
+  exit 1
+fi
+
+read_env_value() {
+  local key="$1"
+  if [[ ! -f "$ENV_FILE" ]]; then
+    return 0
+  fi
+
+  python3 - <<'PY' "$ENV_FILE" "$key"
+from pathlib import Path
+import sys
+
+env_path = Path(sys.argv[1])
+target = sys.argv[2]
+
+for line in env_path.read_text(encoding="utf-8").splitlines():
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#") or "=" not in stripped:
+        continue
+    key, value = stripped.split("=", 1)
+    if key.strip() != target:
+        continue
+    value = value.strip().strip('"').strip("'")
+    print(value, end="")
+    break
+PY
+}
+
+OPENSPACE_MODEL="${OPENSPACE_MODEL:-$(read_env_value OPENSPACE_MODEL)}"
+OPENSPACE_MODEL="${OPENSPACE_MODEL:-gpt-5.4}"
+OPENSPACE_LLM_API_KEY="${OPENSPACE_LLM_API_KEY:-$(read_env_value OPENSPACE_LLM_API_KEY)}"
+OPENSPACE_LLM_API_BASE="${OPENSPACE_LLM_API_BASE:-$(read_env_value OPENSPACE_LLM_API_BASE)}"
+OPENSPACE_LLM_API_BASE="${OPENSPACE_LLM_API_BASE:-https://codexapi.space/v1}"
+OPENSPACE_LLM_OPENAI_STREAM_COMPAT="${OPENSPACE_LLM_OPENAI_STREAM_COMPAT:-$(read_env_value OPENSPACE_LLM_OPENAI_STREAM_COMPAT)}"
+OPENSPACE_LLM_OPENAI_STREAM_COMPAT="${OPENSPACE_LLM_OPENAI_STREAM_COMPAT:-true}"
+
+sync_profile_dir() {
+  local name="$1"
+  local src="$PRIMARY_CODEX_HOME/$name"
+  local dst="$PROFILE_HOME/$name"
+
+  if [[ ! -d "$src" ]]; then
+    return
+  fi
+
+  mkdir -p "$dst"
+  rsync -a --delete "$src/" "$dst/"
+}
+
+bootstrap_profile_home() {
+  mkdir -p "$PROFILE_HOME"
+  mkdir -p "$PROJECT_SKILL_DIR"
+  mkdir -p "$PROFILE_HOME/skills"
+
+  sync_profile_dir "plugins"
+  sync_profile_dir "skills"
+  sync_profile_dir "pua"
+
+  cp "$PRIMARY_CODEX_HOME/auth.json" "$PROFILE_HOME/auth.json"
+
+  python3 - <<'PY' "$PRIMARY_CODEX_HOME/config.toml" "$PROFILE_HOME/config.toml" "$REPO_ROOT" "$REPO_PYTHON" "$PROJECT_SKILL_DIR" "$PROFILE_HOME/skills" "$OPENSPACE_MODEL" "$OPENSPACE_LLM_API_KEY" "$OPENSPACE_LLM_API_BASE" "$OPENSPACE_LLM_OPENAI_STREAM_COMPAT"
+from pathlib import Path
+import os
+import sys
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+repo_root = sys.argv[3]
+python_cmd = sys.argv[4]
+project_skill_dir = sys.argv[5]
+profile_skill_dir = sys.argv[6]
+model = sys.argv[7]
+api_key = sys.argv[8]
+api_base = sys.argv[9]
+stream_compat = sys.argv[10]
+
+def strip_tables(text: str, table_names: set[str]) -> str:
+    kept = []
+    skipping = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        header = stripped.split("#", 1)[0].rstrip()
+        if header.startswith("[") and header.endswith("]"):
+            skipping = header in table_names or header.startswith("[mcp_servers.openspace_evolution.")
+            if skipping:
+                continue
+        if skipping:
+            continue
+        kept.append(line)
+    return "\n".join(kept).rstrip() + "\n"
+
+base = strip_tables(
+    src.read_text(encoding="utf-8"),
+    {
+        "[mcp_servers.openspace_evolution]",
+        "[mcp_servers.openspace_evolution.env]",
+    },
+)
+
+project_marker = f'[projects."{repo_root}"]'
+if project_marker not in base:
+    base += f'\n{project_marker}\ntrust_level = "trusted"\n'
+
+if api_key and Path(python_cmd).is_file() and os.access(python_cmd, os.X_OK):
+    base += f'''
+[mcp_servers.openspace_evolution]
+command = "{python_cmd}"
+args = ["-m", "openspace.evolution_mcp_server", "--transport", "stdio"]
+
+[mcp_servers.openspace_evolution.env]
+OPENSPACE_WORKSPACE = "{repo_root}"
+OPENSPACE_HOST_SKILL_DIRS = "{project_skill_dir},{profile_skill_dir}"
+OPENSPACE_MODEL = "{model}"
+OPENSPACE_LLM_API_KEY = "{api_key}"
+OPENSPACE_LLM_API_BASE = "{api_base}"
+OPENSPACE_LLM_OPENAI_STREAM_COMPAT = "{stream_compat}"
+OPENSPACE_ENABLE_RECORDING = "false"
+OPENSPACE_BACKEND_SCOPE = "shell,system"
+'''
+
+dst.write_text(base, encoding="utf-8")
+PY
+}
+
+bootstrap_profile_home
+
+clear_openspace_env() {
+  local var
+  for var in ${!OPENSPACE_@}; do
+    unset "$var"
+  done
+}
+
+if [[ -z "$OPENSPACE_LLM_API_KEY" ]]; then
+  echo "Warning: OpenSpace evolution sidecar is disabled because no provider key was found in $ENV_FILE or the current environment." >&2
+elif [[ ! -x "$REPO_PYTHON" ]]; then
+  echo "Warning: OpenSpace evolution sidecar is disabled because $REPO_PYTHON is missing." >&2
+fi
+
+clear_openspace_env
+
+if [[ "${1:-}" == "app" ]]; then
+  shift
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    exec env CODEX_HOME="$PROFILE_HOME" codex app "$@"
+  fi
+  exec env CODEX_HOME="$PROFILE_HOME" codex app "$@" "$REPO_ROOT"
+fi
+
+exec env CODEX_HOME="$PROFILE_HOME" codex -C "$REPO_ROOT" "$@"

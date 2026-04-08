@@ -48,7 +48,11 @@ class _MCPSafeStdout:
 
     def flush(self):
         self._stderr.flush()
-        self._real.flush()
+        try:
+            self._real.flush()
+        except ValueError:
+            # The MCP stdio transport may close stdout before Python's final flush.
+            pass
 
     def isatty(self):
         return self._stderr.isatty()

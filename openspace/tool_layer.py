@@ -58,6 +58,7 @@ class OpenSpaceConfig:
     enable_screenshot: bool = False
     enable_video: bool = False
     enable_conversation_log: bool = True  # Save LLM conversations to conversations.jsonl
+    enable_skill_engine_without_recording: bool = False  # Allow sidecar evolution without full task recording
     
     # Skill Evolution
     evolution_max_concurrent: int = 3        # Max parallel evolutions per trigger
@@ -242,8 +243,13 @@ class OpenSpace:
                     logger.info(f"✓ Skills: {len(skills)} discovered")
                     self._grounding_agent.set_skill_registry(self._skill_registry)
 
-            # Initialize ExecutionAnalyzer (requires recording + skills)
-            if self.config.enable_recording and self._skill_registry:
+            # Initialize the skill engine whenever skills are available.
+            # Execution analysis still requires recordings, but skill capture
+            # can run without them (for host-agent sidecar workflows).
+            if self._skill_registry and (
+                self.config.enable_recording
+                or self.config.enable_skill_engine_without_recording
+            ):
                 try:
                     skill_store = SkillStore()
                     self._skill_store = skill_store  # Expose for MCP server reuse
@@ -257,19 +263,6 @@ class OpenSpace:
 
                     # Bridge: pass quality_manager so analysis can feed back
                     # LLM-identified tool issues to the tool quality system.
-                    quality_mgr = (
-                        self._grounding_client.quality_manager
-                        if self._grounding_client else None
-                    )
-                    self._execution_analyzer = ExecutionAnalyzer(
-                        store=skill_store,
-                        llm_client=self._llm_client,
-                        model=self.config.execution_analyzer_model,
-                        skill_registry=self._skill_registry,
-                        quality_manager=quality_mgr,
-                    )
-                    logger.info("✓ Execution analysis enabled")
-
                     # Share store with GroundingAgent so retrieve_skill
                     # can access quality metrics for LLM selection.
                     self._grounding_agent._skill_store = skill_store
@@ -287,8 +280,22 @@ class OpenSpace:
                         f"✓ Skill evolution enabled "
                         f"(concurrent={self.config.evolution_max_concurrent})"
                     )
+
+                    if self.config.enable_recording:
+                        quality_mgr = (
+                            self._grounding_client.quality_manager
+                            if self._grounding_client else None
+                        )
+                        self._execution_analyzer = ExecutionAnalyzer(
+                            store=skill_store,
+                            llm_client=self._llm_client,
+                            model=self.config.execution_analyzer_model,
+                            skill_registry=self._skill_registry,
+                            quality_manager=quality_mgr,
+                        )
+                        logger.info("✓ Execution analysis enabled")
                 except Exception as e:
-                    logger.warning(f"Execution analyzer init failed (non-fatal): {e}")
+                    logger.warning(f"Skill engine init failed (non-fatal): {e}")
             
             self._initialized = True
             logger.info("="*60)

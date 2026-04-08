@@ -1,8 +1,12 @@
 import litellm
 import json
 import asyncio
+import os
 import time
+from types import SimpleNamespace
 from typing import List, Sequence, Union, Dict, Optional
+
+import httpx
 from openai.types.chat import ChatCompletionToolParam
 
 from openspace.grounding.core.types import ToolSchema, ToolResult, ToolStatus
@@ -18,6 +22,161 @@ litellm.set_verbose = False
 litellm.suppress_debug_info = True
 
 logger = Logger.get_logger(__name__)
+
+
+def _is_truthy(value: object) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _should_use_openai_stream_compat(litellm_kwargs: Optional[Dict] = None) -> bool:
+    if litellm_kwargs and _is_truthy(litellm_kwargs.get("openai_stream_compat")):
+        return True
+    return _is_truthy(os.environ.get("OPENSPACE_LLM_OPENAI_STREAM_COMPAT", ""))
+
+
+def _build_stream_response(
+    *,
+    content: str,
+    reasoning_content: Optional[str],
+    tool_calls: List[Dict[str, object]],
+):
+    response_tool_calls = []
+    for tool_call in tool_calls:
+        response_tool_calls.append(
+            SimpleNamespace(
+                id=tool_call.get("id"),
+                type=tool_call.get("type", "function"),
+                function=SimpleNamespace(
+                    name=tool_call.get("function", {}).get("name", ""),
+                    arguments=tool_call.get("function", {}).get("arguments", ""),
+                ),
+            )
+        )
+
+    message = SimpleNamespace(
+        content=content,
+        reasoning_content=reasoning_content,
+        tool_calls=response_tool_calls or None,
+    )
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+async def _openai_compat_stream_completion(
+    *,
+    model: str,
+    messages: List[Dict],
+    timeout: float,
+    litellm_kwargs: Optional[Dict] = None,
+    tools: Optional[List[ChatCompletionToolParam]] = None,
+    tool_choice: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
+):
+    kwargs = dict(litellm_kwargs or {})
+    api_key = kwargs.pop("api_key", None)
+    api_base = kwargs.pop("api_base", None)
+    extra_headers = kwargs.pop("extra_headers", None) or {}
+    kwargs.pop("openai_stream_compat", None)
+
+    if not api_key or not api_base:
+        raise ValueError(
+            "OpenAI stream compatibility mode requires api_key and api_base."
+        )
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+    }
+    if tools:
+        payload["tools"] = tools
+    if tool_choice is not None:
+        payload["tool_choice"] = tool_choice
+    if reasoning_effort:
+        payload["reasoning_effort"] = reasoning_effort
+
+    for key in (
+        "temperature",
+        "top_p",
+        "presence_penalty",
+        "frequency_penalty",
+        "max_tokens",
+        "max_completion_tokens",
+        "parallel_tool_calls",
+        "response_format",
+    ):
+        if key in kwargs and kwargs[key] is not None:
+            payload[key] = kwargs[key]
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    headers.update(extra_headers)
+
+    text_parts: List[str] = []
+    reasoning_parts: List[str] = []
+    streamed_tool_calls: Dict[int, Dict[str, object]] = {}
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        async with client.stream(
+            "POST",
+            f"{api_base.rstrip('/')}/chat/completions",
+            headers=headers,
+            json=payload,
+        ) as response:
+            if response.status_code >= 400:
+                body = await response.aread()
+                raise RuntimeError(
+                    f"OpenAI-compat stream request failed: {response.status_code} "
+                    f"{body.decode(errors='replace')}"
+                )
+
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+                data = line[6:].strip()
+                if not data or data == "[DONE]":
+                    break
+
+                chunk = json.loads(data)
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+
+                delta = choices[0].get("delta") or {}
+                content_delta = delta.get("content")
+                if content_delta:
+                    text_parts.append(content_delta)
+
+                reasoning_delta = delta.get("reasoning_content")
+                if reasoning_delta:
+                    reasoning_parts.append(reasoning_delta)
+
+                for tool_delta in delta.get("tool_calls") or []:
+                    idx = tool_delta.get("index", 0)
+                    state = streamed_tool_calls.setdefault(
+                        idx,
+                        {
+                            "id": None,
+                            "type": "function",
+                            "function": {"name": "", "arguments": ""},
+                        },
+                    )
+                    if tool_delta.get("id"):
+                        state["id"] = tool_delta["id"]
+                    if tool_delta.get("type"):
+                        state["type"] = tool_delta["type"]
+                    fn = tool_delta.get("function") or {}
+                    if fn.get("name"):
+                        state["function"]["name"] += fn["name"]
+                    if fn.get("arguments"):
+                        state["function"]["arguments"] += fn["arguments"]
+
+    return _build_stream_response(
+        content="".join(text_parts),
+        reasoning_content="".join(reasoning_parts) or None,
+        tool_calls=[streamed_tool_calls[i] for i in sorted(streamed_tool_calls)],
+    )
 
 
 def _sanitize_schema(params: Dict) -> Dict:
@@ -263,15 +422,26 @@ Content:
 Concise summary:"""
         
         _extra = litellm_kwargs or {}
-        response = await asyncio.wait_for(
-            litellm.acompletion(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                timeout=timeout,
-                **_extra,
-            ),
-            timeout=timeout + 5
-        )
+        if _should_use_openai_stream_compat(_extra):
+            response = await asyncio.wait_for(
+                _openai_compat_stream_completion(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    timeout=timeout,
+                    litellm_kwargs=_extra,
+                ),
+                timeout=timeout + 5,
+            )
+        else:
+            response = await asyncio.wait_for(
+                litellm.acompletion(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    timeout=timeout,
+                    **_extra,
+                ),
+                timeout=timeout + 5
+            )
         
         summary = response.choices[0].message.content.strip()
         result = f"[SUMMARY of {len(content):,} chars]\n{summary}"
@@ -552,10 +722,24 @@ class LLMClient:
         for attempt in range(self.max_retries):
             try:
                 # Add timeout to the completion call
-                response = await asyncio.wait_for(
-                    litellm.acompletion(**completion_kwargs),
-                    timeout=self.timeout
-                )
+                if _should_use_openai_stream_compat(completion_kwargs):
+                    response = await asyncio.wait_for(
+                        _openai_compat_stream_completion(
+                            model=completion_kwargs["model"],
+                            messages=completion_kwargs["messages"],
+                            timeout=self.timeout,
+                            litellm_kwargs=completion_kwargs,
+                            tools=completion_kwargs.get("tools"),
+                            tool_choice=completion_kwargs.get("tool_choice"),
+                            reasoning_effort=completion_kwargs.get("reasoning_effort"),
+                        ),
+                        timeout=self.timeout,
+                    )
+                else:
+                    response = await asyncio.wait_for(
+                        litellm.acompletion(**completion_kwargs),
+                        timeout=self.timeout
+                    )
                 return response
             except asyncio.TimeoutError:
                 self._logger.error(
