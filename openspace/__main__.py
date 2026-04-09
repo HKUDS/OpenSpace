@@ -158,6 +158,43 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         '--config', '-c', type=str,
         help='MCP configuration file path'
     )
+
+    communication_parser = subparsers.add_parser(
+        'communication',
+        help='Run the communication gateway'
+    )
+    communication_parser.add_argument(
+        '--config',
+        type=str,
+        dest='communication_config',
+        help='Communication configuration file path'
+    )
+    communication_subparsers = communication_parser.add_subparsers(
+        dest='communication_command',
+        help='Communication gateway commands'
+    )
+    communication_run_parser = communication_subparsers.add_parser(
+        'run',
+        help='Start the communication gateway'
+    )
+    communication_run_parser.add_argument(
+        '--config',
+        type=str,
+        dest='communication_config',
+        help='Communication configuration file path'
+    )
+    communication_health_parser = communication_subparsers.add_parser(
+        'health',
+        help='Check the communication gateway health endpoint'
+    )
+    communication_health_parser.add_argument(
+        '--config',
+        type=str,
+        dest='communication_config',
+        help='Communication configuration file path'
+    )
+    communication_health_parser.add_argument('--host', type=str, default=None)
+    communication_health_parser.add_argument('--port', type=int, default=None)
     
     # Basic arguments (for run mode)
     parser.add_argument('--config', '-c', type=str, help='Configuration file path (JSON format)')
@@ -444,6 +481,20 @@ async def main():
     if args.command == 'refresh-cache':
         await refresh_mcp_cache(args.config)
         return 0
+    if args.command == 'communication':
+        from openspace.communication.gateway import main as communication_main
+
+        communication_argv = []
+        if args.communication_config:
+            communication_argv.extend(['--config', args.communication_config])
+        if args.communication_command:
+            communication_argv.append(args.communication_command)
+        if args.communication_command == 'health':
+            if args.host:
+                communication_argv.extend(['--host', args.host])
+            if args.port is not None:
+                communication_argv.extend(['--port', str(args.port)])
+        return await communication_main(communication_argv)
     
     # Load configuration
     config = _load_config(args)

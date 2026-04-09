@@ -26,6 +26,7 @@ dependencies = [
     "flask>=3.1.0",
     "pyautogui>=0.9.54",
     "pydantic>=2.12.0",
+    "aiohttp>=3.10.0",
     "requests>=2.32.0",
 ]
 
@@ -57,8 +58,15 @@ dev = [
     "mypy>=1.0.0",
 ]
 
+communication = [
+    "lark-oapi>=1.4.20",
+]
+
 all = [
-    "openspace[macos,linux,windows,dev]",
+    "openspace[macos]; sys_platform == 'darwin'",
+    "openspace[linux]; sys_platform == 'linux'",
+    "openspace[windows]; sys_platform == 'win32'",
+    "openspace[communication,dev]",
 ]
 
 [project.urls]
@@ -72,6 +80,7 @@ openspace-mcp = "openspace.mcp_server:run_mcp_server"
 openspace-download-skill = "openspace.cloud.cli.download_skill:main"
 openspace-upload-skill = "openspace.cloud.cli.upload_skill:main"
 openspace-dashboard = "openspace.dashboard_server:main"
+openspace-gateway = "openspace.communication.gateway:run_main"
 
 [tool.setuptools]
 packages = {find = {where = ["."], include = ["openspace*"]}}
@@ -80,6 +89,7 @@ packages = {find = {where = ["."], include = ["openspace*"]}}
 openspace = [
     "config/*.json",
     "config/*.json.example",
+    "communication/bridges/whatsapp/*",
     "local_server/config.json",
     "local_server/README.md",
 ]

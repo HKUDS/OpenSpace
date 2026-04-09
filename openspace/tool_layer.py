@@ -104,7 +104,6 @@ class OpenSpace:
             return
         
         logger.info("Initializing OpenSpace...")
-        
         try:
             self._llm_client = LLMClient(
                 model=self.config.llm_model,
@@ -313,7 +312,10 @@ class OpenSpace:
         
         Args:
             task: Task instruction
-            context: Additional context
+            context: Additional context. Communication callers may pass:
+                - conversation_history: prior user/assistant turns
+                - channel_context: platform/chat metadata and attachments
+                - session_key: stable external session identifier
             workspace_dir: Working directory
             max_iterations: Max iterations override
             task_id: External task ID for recording/logging. If None, generates a random one.
@@ -357,9 +359,11 @@ class OpenSpace:
 
         # Populated inside the try block; used by finally for analysis
         result: Dict[str, Any] = {}
+        execution_time = 0.0
+        cancelled_exc: Optional[asyncio.CancelledError] = None
 
         try:
-            execution_context = context or {}
+            execution_context = dict(context) if context else {}
             execution_context["task_id"] = task_id
             execution_context["instruction"] = task
             
@@ -531,6 +535,20 @@ class OpenSpace:
                 logger.error(f"Task failed: {result.get('error', 'Unknown error')}")
             logger.info("="*60)
             
+        except asyncio.CancelledError as exc:
+            execution_time = asyncio.get_event_loop().time() - start_time
+            logger.warning("Task execution cancelled")
+            result = {
+                "status": "cancelled",
+                "error": "Task execution cancelled",
+                "response": "",
+                "execution_time": execution_time,
+                "task_id": task_id,
+                "iterations": 0,
+                "tool_executions": [],
+            }
+            cancelled_exc = exc
+
         except Exception as e:
             execution_time = asyncio.get_event_loop().time() - start_time
             tb = traceback.format_exc(limit=10)
@@ -569,14 +587,15 @@ class OpenSpace:
                 except Exception as e:
                     logger.warning(f"Failed to stop recording: {e}")
 
-            # Run execution analysis + evolution BEFORE building the return
-            # value, so evolved_skills is populated.
-            await self._maybe_analyze_execution(
-                task_id, recording_dir, result
-            )
+            if cancelled_exc is None:
+                # Run execution analysis + evolution BEFORE building the return
+                # value, so evolved_skills is populated.
+                await self._maybe_analyze_execution(
+                    task_id, recording_dir, result
+                )
 
-            # Trigger quality evolution periodically
-            await self._maybe_evolve_quality()
+                # Trigger quality evolution periodically
+                await self._maybe_evolve_quality()
 
             final_result = {
                 **result,
@@ -588,8 +607,10 @@ class OpenSpace:
             
             self._running = False
             self._task_done.set()
-            
-            return final_result
+
+        if cancelled_exc is not None:
+            raise cancelled_exc
+        return final_result
     
     # Skills helpers
     def _init_skill_registry(self) -> Optional[SkillRegistry]:

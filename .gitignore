@@ -28,8 +28,11 @@ build/
 .env
 !.env.example
 
-# MCP files
+# MCP config files
 openspace/config/config_mcp.json
+
+# Communication config files
+openspace/config/config_communication.json
 
 # Logs
 logs/

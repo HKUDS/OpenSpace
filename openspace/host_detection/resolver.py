@@ -75,6 +75,20 @@ def _pick_first_env(names: tuple[str, ...]) -> str:
     return ""
 
 
+def _ensure_local_no_proxy() -> None:
+    required_hosts = ("127.0.0.1", "localhost")
+    for env_name in ("NO_PROXY", "no_proxy"):
+        current = os.environ.get(env_name, "")
+        entries = [entry.strip() for entry in current.split(",") if entry.strip()]
+        updated = False
+        for host in required_hosts:
+            if host not in entries:
+                entries.append(host)
+                updated = True
+        if updated:
+            os.environ[env_name] = ",".join(entries)
+
+
 def _infer_provider_name(model: str) -> Optional[str]:
     """Infer the provider name from a model string using PROVIDER_REGISTRY."""
     from openspace.host_detection.nanobot import PROVIDER_REGISTRY
@@ -221,6 +235,16 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
     # Default model fallback
     if not resolved_model:
         resolved_model = _DEFAULT_MODEL
+
+    # Ollama models must use the Ollama-native API base, even when unrelated
+    # OPENSPACE_LLM_* env vars are present for a different provider.
+    if resolved_model.lower().startswith("ollama/"):
+        ollama_base = os.environ.get("OLLAMA_API_BASE", "").strip() or "http://127.0.0.1:11434"
+        _ensure_local_no_proxy()
+        kwargs["api_base"] = ollama_base.rstrip("/")
+        kwargs["api_key"] = os.environ.get("OLLAMA_API_KEY", "").strip() or kwargs.get("api_key") or "ollama"
+        kwargs.pop("extra_headers", None)
+        source = "ollama runtime"
 
     # Provider-specific adjustments for litellm routing
     if resolved_model and "minimax" in resolved_model.lower():

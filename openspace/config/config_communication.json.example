@@ -1,0 +1,65 @@
+{
+  "data_dir": "./logs/communication",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "health_path": "/health"
+  },
+  "agent": {
+    "max_iterations": 20,
+    "enable_recording": true,
+    "recording_backends": [
+      "shell"
+    ],
+    "backend_scope": null,
+    "grounding_config_path": null,
+    "workspace_root": null,
+    "llm_timeout": 120.0
+  },
+  "sessions": {
+    "history_max_turns": 12,
+    "max_parallel_sessions": 2,
+    "idle_ttl_seconds": 900,
+    "per_session_queue_size": 32,
+    "whatsapp_poll_interval_seconds": 1.0,
+    "max_attachment_bytes": 26214400,
+    "max_session_attachment_bytes": 104857600
+  },
+  "whatsapp": {
+    "enabled": false,
+    "allow_all_users": false,
+    "allowed_users": [
+      "15551234567"
+    ],
+    "allow_dm": true,
+    "allow_groups": true,
+    "group_policy": "reply_or_mention",
+    "reply_prefix": "OpenSpace\n────────────\n",
+    "bridge": {
+      "host": "127.0.0.1",
+      "port": 3000,
+      "script_path": null,
+      "session_dir": null,
+      "mode": "self-chat",
+      "auto_install_dependencies": true
+    }
+  },
+  "feishu": {
+    "enabled": false,
+    "allow_all_users": false,
+    "allowed_users": [
+      "ou_xxxxxxxxxxxxx"
+    ],
+    "allow_dm": true,
+    "allow_groups": true,
+    "group_policy": "reply_or_mention",
+    "app_id": "cli_xxxxxxxxxxxxx",
+    "app_secret": "xxxxxxxxxxxxx",
+    "domain": "feishu",
+    "connection_mode": "webhook",
+    "verification_token": "",
+    "encrypt_key": "",
+    "bot_open_id": "",
+    "webhook_path": "/feishu/webhook"
+  }
+}
