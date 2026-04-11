@@ -14,6 +14,8 @@ import logging
 import os
 import subprocess
 import sys
+import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -110,6 +112,10 @@ mcp = FastMCP("OpenSpace Evolution", **_fastmcp_kwargs)
 _openspace_instance = None
 _openspace_lock = asyncio.Lock()
 _UPLOAD_META_FILENAME = ".upload_meta.json"
+_idle_watchdog_started = False
+_activity_lock = threading.Lock()
+_active_request_count = 0
+_last_activity_at = time.monotonic()
 
 
 def _json_ok(data: Any) -> str:
@@ -118,6 +124,65 @@ def _json_ok(data: Any) -> str:
 
 def _json_error(error: Any, **extra) -> str:
     return json.dumps({"error": str(error), **extra}, ensure_ascii=False)
+
+
+def _mark_request_start() -> None:
+    global _active_request_count, _last_activity_at
+    with _activity_lock:
+        _active_request_count += 1
+        _last_activity_at = time.monotonic()
+
+
+def _mark_request_end() -> None:
+    global _active_request_count, _last_activity_at
+    with _activity_lock:
+        _active_request_count = max(0, _active_request_count - 1)
+        _last_activity_at = time.monotonic()
+
+
+def _idle_watchdog_loop(idle_timeout_seconds: int) -> None:
+    check_interval = max(1, min(max(idle_timeout_seconds // 3, 1), 60))
+    logger.info("Evolution MCP idle watchdog enabled: timeout=%ss", idle_timeout_seconds)
+    while True:
+        time.sleep(check_interval)
+        with _activity_lock:
+            active = _active_request_count
+            idle_for = time.monotonic() - _last_activity_at
+        if active == 0 and idle_for >= idle_timeout_seconds:
+            logger.info(
+                "Evolution MCP idle watchdog exiting process after %.1fs idle with no active requests",
+                idle_for,
+            )
+            logging.shutdown()
+            os._exit(0)
+
+
+def _maybe_start_idle_watchdog() -> None:
+    global _idle_watchdog_started
+    if _idle_watchdog_started:
+        return
+
+    timeout_raw = os.environ.get("OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS", "").strip()
+    if timeout_raw:
+        try:
+            idle_timeout_seconds = int(timeout_raw)
+        except ValueError:
+            logger.warning("Invalid OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS=%r", timeout_raw)
+            return
+    else:
+        idle_timeout_seconds = 900
+
+    if idle_timeout_seconds <= 0:
+        return
+
+    watchdog = threading.Thread(
+        target=_idle_watchdog_loop,
+        args=(idle_timeout_seconds,),
+        name="openspace-evolution-mcp-idle-watchdog",
+        daemon=True,
+    )
+    watchdog.start()
+    _idle_watchdog_started = True
 
 
 async def _get_openspace():
@@ -459,6 +524,7 @@ async def evolve_from_context(
         output_dir: Override directory for new skills. Defaults to the first
             OPENSPACE_HOST_SKILL_DIRS entry.
     """
+    _mark_request_start()
     try:
         if not task.strip():
             return _json_error("task is required", status="error")
@@ -586,6 +652,8 @@ async def evolve_from_context(
     except Exception as e:
         logger.error("evolve_from_context failed: %s", e, exc_info=True)
         return _json_error(e, status="error")
+    finally:
+        _mark_request_end()
 
 
 def run_mcp_server() -> None:
@@ -595,6 +663,9 @@ def run_mcp_server() -> None:
     parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio")
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
+
+    if args.transport == "stdio":
+        _maybe_start_idle_watchdog()
 
     if args.transport == "sse":
         mcp.run(transport="sse", sse_params={"port": args.port})

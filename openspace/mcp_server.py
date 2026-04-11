@@ -22,6 +22,8 @@ import json
 import logging
 import os
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -122,6 +124,10 @@ mcp = FastMCP("OpenSpace", **_fastmcp_kwargs)
 _openspace_instance = None
 _openspace_lock = asyncio.Lock()
 _standalone_store = None
+_idle_watchdog_started = False
+_activity_lock = threading.Lock()
+_active_request_count = 0
+_last_activity_at = time.monotonic()
 
 # Internal state: tracks bot skill directories already registered this session.
 _registered_skill_dirs: set = set()
@@ -529,6 +535,65 @@ def _json_error(error: Any, **extra) -> str:
     return json.dumps({"error": str(error), **extra}, ensure_ascii=False)
 
 
+def _mark_request_start() -> None:
+    global _active_request_count, _last_activity_at
+    with _activity_lock:
+        _active_request_count += 1
+        _last_activity_at = time.monotonic()
+
+
+def _mark_request_end() -> None:
+    global _active_request_count, _last_activity_at
+    with _activity_lock:
+        _active_request_count = max(0, _active_request_count - 1)
+        _last_activity_at = time.monotonic()
+
+
+def _idle_watchdog_loop(idle_timeout_seconds: int) -> None:
+    check_interval = max(1, min(max(idle_timeout_seconds // 3, 1), 60))
+    logger.info("MCP idle watchdog enabled: timeout=%ss", idle_timeout_seconds)
+    while True:
+        time.sleep(check_interval)
+        with _activity_lock:
+            active = _active_request_count
+            idle_for = time.monotonic() - _last_activity_at
+        if active == 0 and idle_for >= idle_timeout_seconds:
+            logger.info(
+                "MCP idle watchdog exiting process after %.1fs idle with no active requests",
+                idle_for,
+            )
+            logging.shutdown()
+            os._exit(0)
+
+
+def _maybe_start_idle_watchdog() -> None:
+    global _idle_watchdog_started
+    if _idle_watchdog_started:
+        return
+
+    timeout_raw = os.environ.get("OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS", "").strip()
+    if timeout_raw:
+        try:
+            idle_timeout_seconds = int(timeout_raw)
+        except ValueError:
+            logger.warning("Invalid OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS=%r", timeout_raw)
+            return
+    else:
+        idle_timeout_seconds = 900
+
+    if idle_timeout_seconds <= 0:
+        return
+
+    watchdog = threading.Thread(
+        target=_idle_watchdog_loop,
+        args=(idle_timeout_seconds,),
+        name="openspace-mcp-idle-watchdog",
+        daemon=True,
+    )
+    watchdog.start()
+    _idle_watchdog_started = True
+
+
 # MCP Tools (4 tools)
 @mcp.tool()
 async def execute_task(
@@ -566,6 +631,7 @@ async def execute_task(
                       if no API key is configured.
                       "local" — local SkillRegistry only (fast, no cloud).
     """
+    _mark_request_start()
     try:
         openspace = await _get_openspace()
 
@@ -607,6 +673,8 @@ async def execute_task(
     except Exception as e:
         logger.error(f"execute_task failed: {e}", exc_info=True)
         return _json_error(e, status="error")
+    finally:
+        _mark_request_end()
 
 
 @mcp.tool()
@@ -636,6 +704,7 @@ async def search_skills(
         limit: Maximum results to return (default: 20).
         auto_import: Auto-download top public cloud skills (default: True).
     """
+    _mark_request_start()
     try:
         from openspace.cloud.search import hybrid_search_skills
 
@@ -710,6 +779,8 @@ async def search_skills(
     except Exception as e:
         logger.error(f"search_skills failed: {e}", exc_info=True)
         return _json_error(e)
+    finally:
+        _mark_request_end()
 
 
 @mcp.tool()
@@ -741,6 +812,7 @@ async def fix_skill(
                    e.g. "The API endpoint changed from v1 to v2" or
                    "Add retry logic for HTTP 429 rate limit errors".
     """
+    _mark_request_start()
     try:
         from openspace.skill_engine.types import EvolutionSuggestion, EvolutionType
         from openspace.skill_engine.evolver import EvolutionContext, EvolutionTrigger
@@ -828,6 +900,8 @@ async def fix_skill(
     except Exception as e:
         logger.error(f"fix_skill failed: {e}", exc_info=True)
         return _json_error(e, status="error")
+    finally:
+        _mark_request_end()
 
 
 @mcp.tool()
@@ -868,6 +942,7 @@ async def upload_skill(
         created_by: Override creator.  Default: from .upload_meta.json.
         change_summary: Override summary.  Default: from .upload_meta.json.
     """
+    _mark_request_start()
     try:
         skill_path = Path(skill_dir)
         if not (skill_path / "SKILL.md").exists():
@@ -899,6 +974,8 @@ async def upload_skill(
     except Exception as e:
         logger.error(f"upload_skill failed: {e}", exc_info=True)
         return _json_error(e, status="error")
+    finally:
+        _mark_request_end()
 
 def run_mcp_server() -> None:
     """Console-script entry point for ``openspace-mcp``."""
@@ -908,6 +985,9 @@ def run_mcp_server() -> None:
     parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio")
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
+
+    if args.transport == "stdio":
+        _maybe_start_idle_watchdog()
 
     if args.transport == "sse":
         mcp.run(transport="sse", sse_params={"port": args.port})
