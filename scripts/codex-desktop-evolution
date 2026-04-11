@@ -53,6 +53,15 @@ OPENSPACE_LLM_API_BASE="${OPENSPACE_LLM_API_BASE:-$(read_env_value OPENSPACE_LLM
 OPENSPACE_LLM_API_BASE="${OPENSPACE_LLM_API_BASE:-https://codexapi.space/v1}"
 OPENSPACE_LLM_OPENAI_STREAM_COMPAT="${OPENSPACE_LLM_OPENAI_STREAM_COMPAT:-$(read_env_value OPENSPACE_LLM_OPENAI_STREAM_COMPAT)}"
 OPENSPACE_LLM_OPENAI_STREAM_COMPAT="${OPENSPACE_LLM_OPENAI_STREAM_COMPAT:-true}"
+OPENSPACE_SKILL_EMBEDDING_BACKEND="${OPENSPACE_SKILL_EMBEDDING_BACKEND:-$(read_env_value OPENSPACE_SKILL_EMBEDDING_BACKEND)}"
+OPENSPACE_SKILL_EMBEDDING_BACKEND="${OPENSPACE_SKILL_EMBEDDING_BACKEND:-local}"
+OPENSPACE_SKILL_EMBEDDING_MODEL="${OPENSPACE_SKILL_EMBEDDING_MODEL:-$(read_env_value OPENSPACE_SKILL_EMBEDDING_MODEL)}"
+OPENSPACE_SKILL_EMBEDDING_MODEL="${OPENSPACE_SKILL_EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}"
+OPENSPACE_SKILL_EMBEDDING_API_KEY="${OPENSPACE_SKILL_EMBEDDING_API_KEY:-$(read_env_value OPENSPACE_SKILL_EMBEDDING_API_KEY)}"
+OPENSPACE_SKILL_EMBEDDING_API_BASE="${OPENSPACE_SKILL_EMBEDDING_API_BASE:-$(read_env_value OPENSPACE_SKILL_EMBEDDING_API_BASE)}"
+EMBEDDING_API_KEY="${EMBEDDING_API_KEY:-$(read_env_value EMBEDDING_API_KEY)}"
+EMBEDDING_BASE_URL="${EMBEDDING_BASE_URL:-$(read_env_value EMBEDDING_BASE_URL)}"
+EMBEDDING_MODEL="${EMBEDDING_MODEL:-$(read_env_value EMBEDDING_MODEL)}"
 
 sync_profile_dir() {
   local name="$1"
@@ -78,7 +87,7 @@ bootstrap_profile_home() {
 
   cp "$PRIMARY_CODEX_HOME/auth.json" "$PROFILE_HOME/auth.json"
 
-  python3 - <<'PY' "$PRIMARY_CODEX_HOME/config.toml" "$PROFILE_HOME/config.toml" "$REPO_ROOT" "$REPO_PYTHON" "$PROJECT_SKILL_DIR" "$PROFILE_HOME/skills" "$OPENSPACE_MODEL" "$OPENSPACE_LLM_API_KEY" "$OPENSPACE_LLM_API_BASE" "$OPENSPACE_LLM_OPENAI_STREAM_COMPAT"
+  python3 - <<'PY' "$PRIMARY_CODEX_HOME/config.toml" "$PROFILE_HOME/config.toml" "$REPO_ROOT" "$REPO_PYTHON" "$PROJECT_SKILL_DIR" "$PROFILE_HOME/skills" "$OPENSPACE_MODEL" "$OPENSPACE_LLM_API_KEY" "$OPENSPACE_LLM_API_BASE" "$OPENSPACE_LLM_OPENAI_STREAM_COMPAT" "$OPENSPACE_SKILL_EMBEDDING_BACKEND" "$OPENSPACE_SKILL_EMBEDDING_MODEL" "$OPENSPACE_SKILL_EMBEDDING_API_KEY" "$OPENSPACE_SKILL_EMBEDDING_API_BASE" "$EMBEDDING_API_KEY" "$EMBEDDING_BASE_URL" "$EMBEDDING_MODEL"
 from pathlib import Path
 import os
 import sys
@@ -93,6 +102,13 @@ model = sys.argv[7]
 api_key = sys.argv[8]
 api_base = sys.argv[9]
 stream_compat = sys.argv[10]
+skill_embedding_backend = sys.argv[11]
+skill_embedding_model = sys.argv[12]
+skill_embedding_api_key = sys.argv[13]
+skill_embedding_api_base = sys.argv[14]
+embedding_api_key = sys.argv[15]
+embedding_base_url = sys.argv[16]
+embedding_model = sys.argv[17]
 
 def strip_tables(text: str, table_names: set[str]) -> str:
     kept = []
@@ -134,6 +150,13 @@ OPENSPACE_MODEL = "{model}"
 OPENSPACE_LLM_API_KEY = "{api_key}"
 OPENSPACE_LLM_API_BASE = "{api_base}"
 OPENSPACE_LLM_OPENAI_STREAM_COMPAT = "{stream_compat}"
+OPENSPACE_SKILL_EMBEDDING_BACKEND = "{skill_embedding_backend}"
+OPENSPACE_SKILL_EMBEDDING_MODEL = "{skill_embedding_model}"
+OPENSPACE_SKILL_EMBEDDING_API_KEY = "{skill_embedding_api_key}"
+OPENSPACE_SKILL_EMBEDDING_API_BASE = "{skill_embedding_api_base}"
+EMBEDDING_API_KEY = "{embedding_api_key}"
+EMBEDDING_BASE_URL = "{embedding_base_url}"
+EMBEDDING_MODEL = "{embedding_model}"
 OPENSPACE_ENABLE_RECORDING = "false"
 OPENSPACE_BACKEND_SCOPE = "shell,system"
 '''
@@ -149,6 +172,9 @@ clear_openspace_env() {
   for var in ${!OPENSPACE_@}; do
     unset "$var"
   done
+  unset EMBEDDING_API_KEY
+  unset EMBEDDING_BASE_URL
+  unset EMBEDDING_MODEL
 }
 
 if [[ -z "$OPENSPACE_LLM_API_KEY" ]]; then

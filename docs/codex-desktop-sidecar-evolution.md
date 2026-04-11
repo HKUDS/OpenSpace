@@ -28,6 +28,31 @@ Instead, the final implementation uses **process-level split routing**:
 
 API compatibility work was still necessary, but it is only one part of the solution.
 
+## Embedding Split Routing
+
+The sidecar now also supports a separate skill-embedding route from the main LLM.
+
+Recommended setup:
+
+```bash
+OPENSPACE_MODEL=gpt-5.4
+OPENSPACE_LLM_API_KEY=sk-xxx
+OPENSPACE_LLM_API_BASE=http://127.0.0.1:8080/v1
+
+OPENSPACE_SKILL_EMBEDDING_BACKEND=local
+OPENSPACE_SKILL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+```
+
+If you want a dedicated remote endpoint for skill embeddings instead of local
+fastembed, set:
+
+```bash
+OPENSPACE_SKILL_EMBEDDING_BACKEND=remote
+OPENSPACE_SKILL_EMBEDDING_API_KEY=sk-embed-xxx
+OPENSPACE_SKILL_EMBEDDING_API_BASE=https://example.com/v1
+OPENSPACE_SKILL_EMBEDDING_MODEL=openai/text-embedding-3-small
+```
+
 ## What Was Implemented
 
 ### 1. OpenAI-compatible provider bridge for OpenSpace

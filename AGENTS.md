@@ -1,5 +1,24 @@
 # AGENTS
 
+## Project Skill Bucket
+
+For this repository, the project-scoped OpenSpace skill bucket is:
+
+- `~/.codex/projects/openspace/skills`
+- index: `~/.codex/projects/openspace/SKILL_INDEX.md`
+
+Routing preference for work inside this repo:
+
+1. project bucket `openspace`
+2. shared local bucket `default`
+3. common global skills
+
+Mirror OpenSpace's own pattern:
+- first run `/Users/admin/.codex/tools/route_codex_skills_via_openspace.py`
+- prefilter by skill header metadata first
+- only open the most likely 1-2 `SKILL.md` files
+- avoid scanning every project skill file unless the user explicitly asks
+
 ## Codex Desktop Sidecar Evolution
 
 Use this workflow when the user is coding in Codex Desktop with their normal subscription login and wants OpenSpace to do post-task skill capture through the isolated `openspace_evolution` sidecar.

@@ -35,6 +35,13 @@ Set via `.env`, MCP config `env` block, or system environment.
 | `OPENSPACE_LLM_API_BASE` | LLM API base URL | — |
 | `OPENSPACE_LLM_EXTRA_HEADERS` | Extra LLM headers (JSON) | — |
 | `OPENSPACE_LLM_CONFIG` | Arbitrary litellm kwargs (JSON) | — |
+| `OPENSPACE_SKILL_EMBEDDING_BACKEND` | Skill-router embedding backend: `auto`, `local`, or `remote` | `auto` |
+| `OPENSPACE_SKILL_EMBEDDING_MODEL` | Skill-router embedding model | `BAAI/bge-small-en-v1.5` in local mode, `openai/text-embedding-3-small` in remote mode |
+| `OPENSPACE_SKILL_EMBEDDING_API_KEY` | Dedicated remote embedding API key for skill routing | — |
+| `OPENSPACE_SKILL_EMBEDDING_API_BASE` | Dedicated remote embedding API base for skill routing | — |
+| `EMBEDDING_API_KEY` | Generic embedding API key (tool search, optional skill-router fallback) | — |
+| `EMBEDDING_BASE_URL` | Generic embedding API base URL | — |
+| `EMBEDDING_MODEL` | Generic embedding model for tool search | `BAAI/bge-small-en-v1.5` |
 | `OPENSPACE_API_KEY` | Cloud API key ([open-space.cloud](https://open-space.cloud)) | — |
 | `OPENSPACE_MAX_ITERATIONS` | Max agent iterations per task | `20` |
 | `OPENSPACE_BACKEND_SCOPE` | Enabled backends (comma-separated) | `shell,gui,mcp,web,system` |
@@ -46,6 +53,29 @@ Set via `.env`, MCP config `env` block, or system environment.
 | `OPENSPACE_MCP_SERVERS_JSON` | MCP server definitions (JSON) | — |
 | `OPENSPACE_ENABLE_RECORDING` | Record execution traces | `true` |
 | `OPENSPACE_LOG_LEVEL` | Log level | `INFO` |
+
+### Split-routing example
+
+Keep the main LLM on an OpenAI-compatible provider, but force the
+skill-router embedding path to stay local:
+
+```bash
+OPENSPACE_MODEL=gpt-5.4
+OPENSPACE_LLM_API_KEY=sk-xxx
+OPENSPACE_LLM_API_BASE=http://127.0.0.1:8080/v1
+
+OPENSPACE_SKILL_EMBEDDING_BACKEND=local
+OPENSPACE_SKILL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+```
+
+Or send skill embeddings to a separate endpoint:
+
+```bash
+OPENSPACE_SKILL_EMBEDDING_BACKEND=remote
+OPENSPACE_SKILL_EMBEDDING_API_KEY=sk-embed-xxx
+OPENSPACE_SKILL_EMBEDDING_API_BASE=https://example.com/v1
+OPENSPACE_SKILL_EMBEDDING_MODEL=openai/text-embedding-3-small
+```
 
 ## 3. MCP Servers (`config_mcp.json`)
 

@@ -7,7 +7,9 @@ Provides a two-stage retrieval pipeline for skill selection:
 Embedding strategy:
   - Text = ``name + description + SKILL.md body`` (consistent with MCP
     ``search_skills`` and the clawhub cloud platform)
-  - Model: ``qwen/qwen3-embedding-8b`` via OpenRouter API
+  - Backend is configurable via ``OPENSPACE_SKILL_EMBEDDING_BACKEND``
+    and can use either a local fastembed model or a remote
+    OpenAI-compatible embedding endpoint
   - Embeddings are cached in-memory keyed by ``skill_id`` and optionally
     persisted to a pickle file for cross-session reuse
 
@@ -32,8 +34,6 @@ from openspace.utils.logging import Logger
 
 logger = Logger.get_logger(__name__)
 
-# Embedding model — must match clawhub platform for vector-space compatibility
-SKILL_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 SKILL_EMBEDDING_MAX_CHARS = 12_000
 
 # Pre-filter threshold: when local skills exceed this count, BM25 pre-filter
@@ -44,7 +44,7 @@ PREFILTER_THRESHOLD = 10
 BM25_CANDIDATES_MULTIPLIER = 3  # top_k * 3
 
 # Cache version — increment when format changes
-_CACHE_VERSION = 1
+_CACHE_VERSION = 2
 
 
 @dataclass
@@ -239,13 +239,6 @@ class SkillRanker:
         return ranked[:top_k]
 
     @staticmethod
-    def _get_openai_api_key() -> Optional[str]:
-        """Resolve OpenAI-compatible API key for embedding requests."""
-        from openspace.cloud.embedding import resolve_embedding_api
-        api_key, _ = resolve_embedding_api()
-        return api_key
-
-    @staticmethod
     def _build_embedding_text(candidate: SkillCandidate) -> str:
         """Build text for embedding, consistent with MCP search_skills."""
         if candidate.embedding_text:
@@ -264,12 +257,8 @@ class SkillRanker:
         top_k: int,
     ) -> List[SkillCandidate]:
         """Rank candidates using embedding cosine similarity."""
-        api_key = self._get_openai_api_key()
-        if not api_key:
-            return []
-
         # Generate query embedding
-        query_emb = self._generate_embedding(query, api_key=api_key)
+        query_emb = self._generate_embedding(query)
         if not query_emb:
             return []
 
@@ -281,7 +270,7 @@ class SkillRanker:
                     c.embedding = cached
                 else:
                     text = self._build_embedding_text(c)
-                    emb = self._generate_embedding(text, api_key=api_key)
+                    emb = self._generate_embedding(text)
                     if emb:
                         c.embedding = emb
                         self._embedding_cache[c.skill_id] = emb
@@ -305,53 +294,20 @@ class SkillRanker:
         text: str,
         api_key: Optional[str] = None,
     ) -> Optional[List[float]]:
-        """Generate embedding via OpenAI-compatible API (text-embedding-3-small).
+        """Generate embedding via the configured skill-embedding backend.
 
-        Delegates credential / base-URL resolution to
-        :func:`openspace.cloud.embedding.resolve_embedding_api`.
+        Delegates backend/model resolution to :mod:`openspace.cloud.embedding`.
         """
-        from openspace.cloud.embedding import resolve_embedding_api
+        from openspace.cloud.embedding import generate_embedding
 
-        resolved_key, base_url = resolve_embedding_api()
-        if not api_key:
-            api_key = resolved_key
-        if not api_key:
-            return None
-
-        import urllib.request
-
-        body = json.dumps({
-            "model": SKILL_EMBEDDING_MODEL,
-            "input": text,
-        }).encode("utf-8")
-
-        req = urllib.request.Request(
-            f"{base_url}/embeddings",
-            data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
-            method="POST",
-        )
-        import time
-        last_err = None
-        for attempt in range(3):
-            try:
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    return data.get("data", [{}])[0].get("embedding")
-            except Exception as e:
-                last_err = e
-                if attempt < 2:
-                    delay = 2 * (attempt + 1)
-                    logger.debug("Embedding request failed (attempt %d/3), retrying in %ds: %s", attempt + 1, delay, e)
-                    time.sleep(delay)
-        logger.warning("Skill embedding generation failed after 3 attempts: %s", last_err)
-        return None
+        return generate_embedding(text, api_key=api_key)
 
     def _cache_file(self) -> Path:
-        return self._cache_dir / f"skill_embeddings_v{_CACHE_VERSION}.pkl"
+        from openspace.cloud.embedding import resolve_skill_embedding_model
+
+        model_name = resolve_skill_embedding_model()
+        safe_model_name = re.sub(r"[^a-zA-Z0-9_.-]+", "_", model_name)
+        return self._cache_dir / f"skill_embeddings_{safe_model_name}_v{_CACHE_VERSION}.pkl"
 
     def _load_cache(self) -> None:
         """Load embedding cache from disk."""
@@ -376,7 +332,7 @@ class SkillRanker:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
             data = {
                 "version": _CACHE_VERSION,
-                "model": SKILL_EMBEDDING_MODEL,
+                "model": self._cache_file().stem,
                 "last_updated": datetime.now().isoformat(),
                 "embeddings": self._embedding_cache,
             }
@@ -412,4 +368,3 @@ def build_skill_embedding_text(
     if len(raw) <= max_chars:
         return raw
     return raw[:max_chars]
-
