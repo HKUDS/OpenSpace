@@ -162,12 +162,18 @@ def _maybe_start_idle_watchdog() -> None:
     if _idle_watchdog_started:
         return
 
-    timeout_raw = os.environ.get("OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS", "").strip()
+    timeout_raw = os.environ.get("OPENSPACE_EVOLUTION_MCP_IDLE_TIMEOUT_SECONDS", "").strip()
+    if not timeout_raw:
+        timeout_raw = os.environ.get("OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS", "").strip()
     if timeout_raw:
         try:
             idle_timeout_seconds = int(timeout_raw)
         except ValueError:
-            logger.warning("Invalid OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS=%r", timeout_raw)
+            logger.warning(
+                "Invalid evolution MCP idle timeout value=%r "
+                "(from OPENSPACE_EVOLUTION_MCP_IDLE_TIMEOUT_SECONDS or OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS)",
+                timeout_raw,
+            )
             return
     else:
         idle_timeout_seconds = 900
