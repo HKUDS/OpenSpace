@@ -158,6 +158,22 @@ openspace-mcp --help   # verify installation
 ```
 
 > [!TIP]
+> **Recommended split routing for OpenAI-compatible gateways**
+>
+> If your main model runs through an OpenAI-compatible provider or local relay (for example `gpt-5.4` via `http://127.0.0.1:8080/v1`), the recommended default is:
+> - keep the main LLM on that provider via `OPENSPACE_LLM_*`
+> - keep skill-router embeddings local via `OPENSPACE_SKILL_EMBEDDING_BACKEND=local`
+> - use `OPENSPACE_SKILL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5`
+>
+> Why this is the default recommendation:
+> - lower latency for routing and prefilter
+> - no dependence on a remote `/v1/embeddings` endpoint
+> - no extra token spend for embedding generation
+> - stronger main LLM still handles final reasoning and selection
+>
+> Architecture notes and flow diagram: [`docs/current-routing-flow.md`](docs/current-routing-flow.md)
+
+> [!TIP]
 > **Slow clone?** The `assets/` folder (~50 MB of images) makes the default clone large. Use this lightweight alternative to skip it:
 > ```bash
 > git clone --filter=blob:none --sparse https://github.com/HKUDS/OpenSpace.git

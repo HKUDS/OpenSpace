@@ -158,6 +158,22 @@ openspace-mcp --help   # 验证安装
 ```
 
 > [!TIP]
+> **OpenAI 兼容网关下，默认推荐双路由方案 A**
+>
+> 如果你的主模型走的是 OpenAI 兼容 provider 或本地 relay（例如 `gpt-5.4` 走 `http://127.0.0.1:8080/v1`），当前最推荐的默认配置是：
+> - 主 LLM 继续走 `OPENSPACE_LLM_*`
+> - skill router 的 embedding 走本地：`OPENSPACE_SKILL_EMBEDDING_BACKEND=local`
+> - 本地 embedding 模型使用：`OPENSPACE_SKILL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5`
+>
+> 这样选的原因：
+> - 路由和预筛选延迟更低
+> - 不依赖远程 `/v1/embeddings`
+> - embedding 不额外消耗 provider token
+> - 更强的主 LLM 仍然负责最终推理和选择
+>
+> 架构说明和流程图见：[`docs/current-routing-flow.md`](docs/current-routing-flow.md)
+
+> [!TIP]
 > **Clone 太慢？** `assets/` 目录包含约 50 MB 的图片文件，导致仓库较大。使用以下轻量方式跳过它：
 > ```bash
 > git clone --filter=blob:none --sparse https://github.com/HKUDS/OpenSpace.git
