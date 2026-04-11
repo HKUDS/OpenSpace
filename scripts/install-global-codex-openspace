@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+REPO_PYTHON="$REPO_ROOT/.venv/bin/python"
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+BIN_DIR="$CODEX_HOME/bin"
+
+if [[ ! -x "$REPO_PYTHON" ]]; then
+  echo "Missing OpenSpace Python runtime: $REPO_PYTHON" >&2
+  exit 1
+fi
+
+mkdir -p "$BIN_DIR"
+
+cat > "$BIN_DIR/openspace-global-mcp" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$REPO_ROOT"
+REPO_PYTHON="\$REPO_ROOT/.venv/bin/python"
+
+if [[ ! -x "\$REPO_PYTHON" ]]; then
+  echo "Missing OpenSpace Python runtime: \$REPO_PYTHON" >&2
+  exit 1
+fi
+
+workspace="\${OPENSPACE_WORKSPACE:-\$PWD}"
+if git_root="\$(git -C "\$workspace" rev-parse --show-toplevel 2>/dev/null)"; then
+  workspace="\$git_root"
+fi
+
+project_name="\$(basename "\$workspace")"
+if [[ -z "\$project_name" || "\$project_name" == "/" || "\$project_name" == "." ]]; then
+  project_name="default"
+fi
+
+project_skill_dir="\${HOME}/.codex/projects/\${project_name}/skills"
+mkdir -p "\$project_skill_dir" "\${HOME}/.codex/skills"
+
+export OPENSPACE_WORKSPACE="\$workspace"
+export OPENSPACE_HOST_SKILL_DIRS="\${OPENSPACE_HOST_SKILL_DIRS:-\${project_skill_dir},\${HOME}/.codex/skills}"
+
+exec "\$REPO_PYTHON" -m openspace.mcp_server --transport stdio
+EOF
+
+cat > "$BIN_DIR/openspace-evolution-global-mcp" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$REPO_ROOT"
+REPO_PYTHON="\$REPO_ROOT/.venv/bin/python"
+
+if [[ ! -x "\$REPO_PYTHON" ]]; then
+  echo "Missing OpenSpace Python runtime: \$REPO_PYTHON" >&2
+  exit 1
+fi
+
+workspace="\${OPENSPACE_WORKSPACE:-\$PWD}"
+if git_root="\$(git -C "\$workspace" rev-parse --show-toplevel 2>/dev/null)"; then
+  workspace="\$git_root"
+fi
+
+export OPENSPACE_WORKSPACE="\$workspace"
+
+project_name="\$(basename "\$OPENSPACE_WORKSPACE")"
+if [[ -z "\$project_name" || "\$project_name" == "/" || "\$project_name" == "." ]]; then
+  project_name="default"
+fi
+
+project_skill_dir="\${HOME}/.codex/projects/\${project_name}/skills"
+mkdir -p "\$project_skill_dir" "\${HOME}/.codex/skills"
+
+export OPENSPACE_HOST_SKILL_DIRS="\${OPENSPACE_HOST_SKILL_DIRS:-\${project_skill_dir},\${HOME}/.codex/skills}"
+
+exec "\$REPO_PYTHON" -m openspace.evolution_mcp_server --transport stdio
+EOF
+
+chmod +x "$BIN_DIR/openspace-global-mcp" "$BIN_DIR/openspace-evolution-global-mcp"
+
+cat <<EOF
+Installed:
+- $BIN_DIR/openspace-global-mcp
+- $BIN_DIR/openspace-evolution-global-mcp
+
+Next:
+1. Point your global ~/.codex/config.toml MCP entries at those two wrapper scripts.
+2. Keep your global ~/.codex/AGENTS.md rules in sync with the repo docs.
+
+Reference:
+- $REPO_ROOT/docs/global-codex-integration.md
+EOF
