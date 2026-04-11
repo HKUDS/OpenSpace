@@ -36,6 +36,10 @@ _PROVIDER_NATIVE_ENV_VARS: Dict[str, tuple[str, ...]] = {
 _env_loaded = False
 
 
+def _get_env_stripped(name: str) -> str:
+    return os.environ.get(name, "").strip()
+
+
 def _load_env_once() -> None:
     """Load .env files once per process.
 
@@ -141,8 +145,8 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
     source = "inherited env"
 
     has_explicit_llm_override = bool(
-        os.environ.get("OPENSPACE_LLM_API_BASE")
-        or os.environ.get("OPENSPACE_LLM_API_KEY")
+        _get_env_stripped("OPENSPACE_LLM_API_BASE")
+        or _get_env_stripped("OPENSPACE_LLM_API_KEY")
     )
     provider_native_env_used = _has_provider_native_env(
         resolved_model or _DEFAULT_MODEL
@@ -185,16 +189,16 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
         source = host_source or "host config"
 
     # --- Tier 1: explicit env vars override everything ---
-    api_key = os.environ.get("OPENSPACE_LLM_API_KEY")
+    api_key = _get_env_stripped("OPENSPACE_LLM_API_KEY")
     if api_key:
         kwargs["api_key"] = api_key
         source = "OPENSPACE_LLM_* env"
 
-    api_base = os.environ.get("OPENSPACE_LLM_API_BASE")
+    api_base = _get_env_stripped("OPENSPACE_LLM_API_BASE")
     if api_base:
         kwargs["api_base"] = api_base
 
-    extra_headers_raw = os.environ.get("OPENSPACE_LLM_EXTRA_HEADERS")
+    extra_headers_raw = _get_env_stripped("OPENSPACE_LLM_EXTRA_HEADERS")
     if extra_headers_raw:
         try:
             headers = json.loads(extra_headers_raw)
@@ -203,7 +207,7 @@ def build_llm_kwargs(model: str) -> tuple[str, Dict[str, Any]]:
         except json.JSONDecodeError:
             logger.warning("Invalid JSON in OPENSPACE_LLM_EXTRA_HEADERS: %r", extra_headers_raw)
 
-    llm_config_raw = os.environ.get("OPENSPACE_LLM_CONFIG")
+    llm_config_raw = _get_env_stripped("OPENSPACE_LLM_CONFIG")
     if llm_config_raw:
         try:
             llm_config = json.loads(llm_config_raw)
@@ -322,4 +326,5 @@ def build_grounding_config_path() -> Optional[str]:
         except Exception as e:
             logger.warning("Failed to write config overrides: %s", e)
 
-    return os.environ.get("OPENSPACE_CONFIG_PATH")
+    config_path = _get_env_stripped("OPENSPACE_CONFIG_PATH")
+    return config_path or None
