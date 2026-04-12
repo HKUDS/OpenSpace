@@ -548,14 +548,27 @@ class LLMClient:
         - Total max time: timeout * max_retries + sum(retry_delays)
         """
         last_exception = None
+        use_stream = completion_kwargs.pop("stream", False)
+        if use_stream:
+            completion_kwargs["stream_options"] = {"include_usage": True}
         
         for attempt in range(self.max_retries):
             try:
-                # Add timeout to the completion call
-                response = await asyncio.wait_for(
-                    litellm.acompletion(**completion_kwargs),
-                    timeout=self.timeout
-                )
+                if use_stream:
+                    chunks = []
+                    async for chunk in await litellm.acompletion(stream=True, **completion_kwargs):
+                        chunks.append(chunk)
+                    if not chunks:
+                        raise ValueError("Stream returned no chunks")
+                    response = await asyncio.wait_for(
+                        asyncio.to_thread(litellm.stream_chunk_builder, chunks, completion_kwargs.get("messages", [])),
+                        timeout=self.timeout,
+                    )
+                else:
+                    response = await asyncio.wait_for(
+                        litellm.acompletion(**completion_kwargs),
+                        timeout=self.timeout
+                    )
                 return response
             except asyncio.TimeoutError:
                 self._logger.error(
