@@ -1,0 +1,7 @@
+{
+  "origin": "captured",
+  "parent_skill_ids": [],
+  "change_summary": "Captured a workflow for validating OpenSpace skill routing by checking project/default/global bucket behavior, inspecting installed launcher/config drift, and applying minimal repair steps when router sanity checks degrade.",
+  "created_by": "gpt-5.4",
+  "tags": []
+}
