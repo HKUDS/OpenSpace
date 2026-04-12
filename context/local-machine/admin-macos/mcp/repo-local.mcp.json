@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "openspace_evolution": {
+      "type": "stdio",
+      "command": "/Users/admin/PycharmProjects/openspace/.venv/bin/python",
+      "args": [
+        "-m",
+        "openspace.evolution_mcp_server",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "OPENSPACE_WORKSPACE": "/Users/admin/PycharmProjects/openspace",
+        "OPENSPACE_HOST_SKILL_DIRS": "/Users/admin/.claude/projects/openspace/skills,/Users/admin/.claude/skills",
+        "OPENSPACE_MODEL": "gpt-5.4",
+        "OPENSPACE_LLM_API_BASE": "http://127.0.0.1:8080/v1",
+        "OPENSPACE_LLM_OPENAI_STREAM_COMPAT": "true",
+        "OPENSPACE_ENABLE_RECORDING": "false",
+        "OPENSPACE_BACKEND_SCOPE": "shell,system"
+      }
+    }
+  }
+}

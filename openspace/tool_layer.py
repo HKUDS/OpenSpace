@@ -357,6 +357,7 @@ class OpenSpace:
         self._task_done.clear()
         self._last_evolved_skills = []  # Reset per-execution tracking
         start_time = asyncio.get_event_loop().time()
+        execution_time = 0.0
         # Use external task_id if provided, otherwise generate one
         if task_id is None:
             task_id = f"task_{uuid.uuid4().hex[:12]}"
@@ -555,6 +556,9 @@ class OpenSpace:
             }
         
         finally:
+            if execution_time <= 0:
+                execution_time = asyncio.get_event_loop().time() - start_time
+
             recording_dir = None
             if self._recording_manager and self._recording_manager.recording_status:
                 recording_dir = self._recording_manager.trajectory_dir

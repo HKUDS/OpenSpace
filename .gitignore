@@ -30,6 +30,7 @@ build/
 
 # MCP files
 openspace/config/config_mcp.json
+.mcp.json
 
 # Logs
 logs/
@@ -46,6 +47,7 @@ showcase/.openspace/*
 # GDPVal benchmark cache
 gdpval_bench/.openspace/*
 !gdpval_bench/.openspace/*.db
+gdpval_bench/results/
 
 # Embedding cache
 embedding_cache/
@@ -73,3 +75,6 @@ openspace/skills/*
 node_modules/
 # Frontend local dependency link
 frontend/node_modules
+
+# Local scratch
+tmp/

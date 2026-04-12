@@ -388,6 +388,7 @@ def _make_config(cfg: Dict, phase: str, worker_id: int = 0):
 
     return OpenSpaceConfig(
         llm_model=cfg["model"],
+        llm_kwargs=cfg.get("llm_kwargs", {}),
         workspace_dir=str(rd / "workspace" / phase),
         recording_log_dir=rec_dir,
         recording_backends=cfg.get("backend_scope", ["shell", "web"]),
@@ -1163,6 +1164,16 @@ async def main(args: argparse.Namespace) -> None:
         cfg["clawwork_root"] = args.clawwork_root
     if getattr(args, "use_clawwork_productivity", False):
         cfg["use_clawwork_productivity"] = True
+
+    # Match CLI / MCP entrypoints: resolve provider credentials once and pass
+    # them into OpenSpaceConfig.llm_kwargs so benchmark runs work with custom
+    # OPENSPACE_LLM_* endpoints too.
+    from openspace.host_detection import build_llm_kwargs, load_runtime_env
+
+    load_runtime_env()
+    resolved_model, llm_kwargs = build_llm_kwargs(cfg.get("model", ""))
+    cfg["model"] = resolved_model
+    cfg["llm_kwargs"] = llm_kwargs
 
     # When using ClawWork productivity tools, ensure livebench is importable
     # before OpenSpace.initialize() (ShellSession loads productivity_tools which imports livebench)

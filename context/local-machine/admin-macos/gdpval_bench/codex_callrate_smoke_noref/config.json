@@ -1,0 +1,19 @@
+{
+  "clawwork_root": "/tmp/openspace-bench-noref-JwyV4l",
+  "gdpval_path": null,
+  "model": "gpt-5.4",
+  "max_iterations": 20,
+  "backend_scope": [
+    "shell"
+  ],
+  "use_clawwork_productivity": false,
+  "run_name": "codex_callrate_smoke_noref",
+  "max_tasks": 3,
+  "per_occupation": null,
+  "sectors": null,
+  "occupations": null,
+  "task_ids": null,
+  "record_call_details": true,
+  "enable_evaluation": false,
+  "concurrency": 1
+}

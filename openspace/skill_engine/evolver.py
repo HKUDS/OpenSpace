@@ -43,6 +43,7 @@ from .patch import (
     create_skill,
     fix_skill,
     derive_skill,
+    parse_multi_file_full,
     SKILL_FILENAME,
 )
 from .skill_utils import (
@@ -71,6 +72,7 @@ EVOLUTION_FAILED = SkillEnginePrompts.EVOLUTION_FAILED
 
 _SKILL_CONTENT_MAX_CHARS = 12_000   # Max chars of SKILL.md in evolution prompt
 _MAX_SKILL_NAME_LENGTH = 50         # Max chars for a skill name (directory name)
+_MULTI_FILE_FULL_HEADER_RE = re.compile(r"(?m)^\*\*\*\s*File:\s*")
 
 
 def _sanitize_skill_name(name: str) -> str:
@@ -94,6 +96,88 @@ def _sanitize_skill_name(name: str) -> str:
     if last_hyphen > _MAX_SKILL_NAME_LENGTH // 2:
         truncated = truncated[:last_hyphen]
     return truncated.strip("-")
+
+
+def _extract_generated_frontmatter_field(content: str, field_name: str) -> Optional[str]:
+    """Extract frontmatter fields from single-file or multi-file FULL outputs."""
+    direct = _extract_frontmatter_field(content, field_name)
+    if direct:
+        return direct
+
+    if _MULTI_FILE_FULL_HEADER_RE.search(content):
+        try:
+            skill_md = parse_multi_file_full(content).get(SKILL_FILENAME, "")
+        except Exception:
+            skill_md = ""
+        if skill_md:
+            nested = _extract_frontmatter_field(skill_md, field_name)
+            if nested:
+                return nested
+
+    # Fall back to the top of the generated text to tolerate minor format drift.
+    head = "\n".join(content.splitlines()[:40])
+    match = re.search(
+        rf"(?im)^\s*{re.escape(field_name)}\s*:\s*(.+?)\s*$",
+        head,
+    )
+    if not match:
+        return None
+
+    value = match.group(1).strip().strip("\"'")
+    return value or None
+
+
+def _serialize_multi_file_full(files: Dict[str, str]) -> str:
+    """Serialize parsed FULL files back into the ``*** Begin Files`` format."""
+    ordered_paths = [SKILL_FILENAME]
+    ordered_paths.extend(path for path in sorted(files) if path != SKILL_FILENAME)
+
+    lines = ["*** Begin Files"]
+    for path in ordered_paths:
+        if path not in files:
+            continue
+        lines.append(f"*** File: {path}")
+        body = files[path].rstrip("\n")
+        if body:
+            lines.append(body)
+    lines.append("*** End Files")
+    return "\n".join(lines).strip() + "\n"
+
+
+def _set_generated_frontmatter_field(content: str, field_name: str, value: str) -> str:
+    """Inject or update frontmatter fields in single-file or multi-file FULL outputs."""
+    if _MULTI_FILE_FULL_HEADER_RE.search(content):
+        files = parse_multi_file_full(content)
+        files[SKILL_FILENAME] = _set_frontmatter_field(
+            files.get(SKILL_FILENAME, ""),
+            field_name,
+            value,
+        )
+        return _serialize_multi_file_full(files)
+
+    return _set_frontmatter_field(content, field_name, value)
+
+
+def _fallback_captured_skill_name(
+    direction: str,
+    category: Optional[SkillCategory],
+) -> str:
+    """Generate a deterministic fallback skill name from the capture direction."""
+    hint = (direction or "").strip()
+    hint = re.split(r"[:.;\n]", hint, maxsplit=1)[0].strip()
+    hint = re.sub(r"(?i)^capture\s+", "", hint)
+    hint = re.sub(r"(?i)^a\s+reusable\s+", "", hint)
+    hint = re.sub(r"(?i)^reusable\s+", "", hint)
+    hint = re.sub(r"(?i)^(workflow|reference|tool[- ]guide)\s+for\s+", "", hint)
+    hint = re.sub(r"(?i)^(adding|creating|capturing|building)\s+", "", hint)
+    hint = re.sub(r"(?i)^(a|an|the)\s+", "", hint)
+
+    fallback = _sanitize_skill_name(hint)
+    if fallback:
+        return fallback
+
+    prefix = (category.value if category else "captured-skill").replace("_", "-")
+    return f"{prefix}-{uuid.uuid4().hex[:6]}"
 
 _ANALYSIS_CONTEXT_MAX = 5           # Max recent analyses to include in prompt
 _ANALYSIS_NOTE_MAX_CHARS = 500      # Per-analysis note truncation
@@ -937,15 +1021,26 @@ class SkillEvolver:
         new_content, change_summary = _extract_change_summary(new_content)
 
         # Extract name/description from the generated content
-        new_name = _extract_frontmatter_field(new_content, "name")
-        new_desc = _extract_frontmatter_field(new_content, "description")
+        new_name = _extract_generated_frontmatter_field(new_content, "name")
+        new_desc = _extract_generated_frontmatter_field(new_content, "description")
         if not new_name:
-            logger.warning("CAPTURED: LLM did not produce a valid skill name")
-            return None
+            new_name = _fallback_captured_skill_name(
+                ctx.suggestion.direction,
+                ctx.suggestion.category,
+            )
+            logger.warning(
+                "CAPTURED: LLM did not produce a valid skill name; using fallback '%s'",
+                new_name,
+            )
 
         # Sanitize name (enforce length limit + valid chars)
         new_name = _sanitize_skill_name(new_name)
-        new_content = _set_frontmatter_field(new_content, "name", new_name)
+        if not new_name:
+            new_name = _fallback_captured_skill_name(
+                ctx.suggestion.direction,
+                ctx.suggestion.category,
+            )
+        new_content = _set_generated_frontmatter_field(new_content, "name", new_name)
 
         # Create new skill directory via create_skill (handles multi-file FULL)
         skill_dirs = self._registry._skill_dirs
