@@ -34,7 +34,6 @@ macos = [
     "pyobjc-core>=12.0",
     "pyobjc-framework-cocoa>=12.0",
     "pyobjc-framework-quartz>=12.0",
-    "atomacos>=3.2.0",
 ]
 
 linux = [

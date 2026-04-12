@@ -37,8 +37,14 @@ Set `"mode": "server"` in `openspace/config/config_grounding.json`:
 <summary><b>macOS</b></summary>
 
 ```bash
-pip install pyobjc-core pyobjc-framework-cocoa pyobjc-framework-quartz atomacos
+pip install pyobjc-core pyobjc-framework-cocoa pyobjc-framework-quartz
 ```
+
+`atomacos` is not included in the default macOS dependency set right now because
+its published releases require `pyautogui<0.9.42`, which conflicts with
+OpenSpace's `pyautogui>=0.9.54`. OpenSpace will still run without it, but the
+macOS accessibility-tree features will stay unavailable until that upstream
+constraint is resolved.
 
 **Permissions required** (macOS will prompt automatically on first run):
 - **Accessibility** (for GUI control)

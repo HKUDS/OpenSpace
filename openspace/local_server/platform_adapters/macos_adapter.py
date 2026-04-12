@@ -20,7 +20,8 @@ class MacOSAdapter:
         global _warning_shown
         if not MACOS_LIBS_AVAILABLE and not _warning_shown:
             logger.warning("macOS libraries are not fully installed, some features may not be available")
-            logger.info("To install missing libraries, run: pip install pyobjc-framework-Cocoa atomacos")
+            logger.info("To install missing libraries, run: pip install pyobjc-core pyobjc-framework-Cocoa pyobjc-framework-quartz")
+            logger.info("Note: atomacos is currently optional because its published versions conflict with pyautogui>=0.9.54")
             _warning_shown = True
         self.available = MACOS_LIBS_AVAILABLE
     
