@@ -27,6 +27,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from openspace.mcp_tool_registration import register_main_tools
+from openspace.shared_mcp_runtime import update_current_daemon_status
 
 class _MCPSafeStdout:
     """Stdout wrapper: binary (.buffer) → real stdout, text (.write) → stderr."""
@@ -128,6 +130,8 @@ _idle_watchdog_started = False
 _activity_lock = threading.Lock()
 _active_request_count = 0
 _last_activity_at = time.monotonic()
+_embedding_prewarm_started = False
+_embedding_prewarm_lock = threading.Lock()
 
 # Internal state: tracks bot skill directories already registered this session.
 _registered_skill_dirs: set = set()
@@ -266,6 +270,94 @@ def _get_local_skill_registry():
     registry = SkillRegistry(skill_dirs=skill_paths)
     registry.discover()
     return registry
+
+
+def _prewarm_main_daemon_skill_embeddings() -> None:
+    """Warm local skill embeddings and cache local candidate vectors.
+
+    Runs in a background thread for the main daemon path so the first user
+    request is less likely to pay the full fastembed/model cold-start cost.
+    """
+    try:
+        from openspace.cloud.embedding import (
+            prewarm_local_skill_embedding_backend,
+            using_local_skill_embeddings,
+        )
+        from openspace.cloud.search import build_local_candidates
+        from openspace.skill_engine.skill_ranker import SkillCandidate, SkillRanker
+
+        if not using_local_skill_embeddings():
+            logger.info("Skipping main daemon embedding prewarm: remote skill embeddings active")
+            update_current_daemon_status("main", warmed=True)
+            return
+
+        if not prewarm_local_skill_embedding_backend():
+            logger.info("Main daemon embedding prewarm did not initialize a local embedder")
+            update_current_daemon_status(
+                "main",
+                warmed=False,
+                warmup_error="local embedder did not initialize",
+            )
+            return
+
+        registry = _get_local_skill_registry()
+        if not registry:
+            logger.info("Skipping main daemon embedding cache prewarm: no local skill registry")
+            update_current_daemon_status("main", warmed=True)
+            return
+
+        candidates = build_local_candidates(registry.list_skills(), store=None)
+        if not candidates:
+            logger.info("Skipping main daemon embedding cache prewarm: no local candidates")
+            update_current_daemon_status("main", warmed=True)
+            return
+
+        ranker = SkillRanker(enable_cache=True)
+        skill_candidates: list[SkillCandidate] = []
+        for candidate in candidates:
+            skill_candidate = SkillCandidate(
+                skill_id=candidate.get("skill_id", ""),
+                name=candidate.get("name", ""),
+                description=candidate.get("description", ""),
+                body="",
+                metadata=candidate,
+            )
+            skill_candidate.embedding_text = candidate.get("_embedding_text", "")
+            skill_candidates.append(skill_candidate)
+
+        warmed = ranker.prime_candidates(skill_candidates)
+        logger.info(
+            "Main daemon skill embedding prewarm complete: %s/%s local candidates ready",
+            warmed,
+            len(skill_candidates),
+        )
+        update_current_daemon_status("main", warmed=True, warmup_error=None)
+    except Exception as exc:
+        logger.warning("Main daemon embedding prewarm failed: %s", exc)
+        update_current_daemon_status("main", warmed=False, warmup_error=str(exc))
+
+
+def _maybe_start_main_daemon_embedding_prewarm() -> None:
+    global _embedding_prewarm_started
+
+    if os.environ.get("OPENSPACE_MCP_DAEMON") != "1":
+        return
+    if os.environ.get("OPENSPACE_MCP_DISABLE_EMBEDDING_PREWARM", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return
+
+    with _embedding_prewarm_lock:
+        if _embedding_prewarm_started:
+            return
+        threading.Thread(
+            target=_prewarm_main_daemon_skill_embeddings,
+            name="openspace-main-embedding-prewarm",
+            daemon=True,
+        ).start()
+        _embedding_prewarm_started = True
 
 
 def _get_cloud_client():
@@ -594,9 +686,8 @@ def _maybe_start_idle_watchdog() -> None:
     _idle_watchdog_started = True
 
 
-# MCP Tools (4 tools)
-@mcp.tool()
-async def execute_task(
+# MCP tool implementations
+async def _execute_task_impl(
     task: str,
     workspace_dir: str | None = None,
     max_iterations: int | None = None,
@@ -677,8 +768,7 @@ async def execute_task(
         _mark_request_end()
 
 
-@mcp.tool()
-async def search_skills(
+async def _search_skills_impl(
     query: str,
     source: str = "all",
     limit: int = 20,
@@ -783,8 +873,7 @@ async def search_skills(
         _mark_request_end()
 
 
-@mcp.tool()
-async def fix_skill(
+async def _fix_skill_impl(
     skill_dir: str,
     direction: str,
 ) -> str:
@@ -904,8 +993,7 @@ async def fix_skill(
         _mark_request_end()
 
 
-@mcp.tool()
-async def upload_skill(
+async def _upload_skill_impl(
     skill_dir: str,
     visibility: str = "public",
     origin: str | None = None,
@@ -977,22 +1065,89 @@ async def upload_skill(
     finally:
         _mark_request_end()
 
+
+class _DirectMainToolImplementation:
+    async def execute_task(
+        self,
+        task: str,
+        workspace_dir: str | None = None,
+        max_iterations: int | None = None,
+        skill_dirs: list[str] | None = None,
+        search_scope: str = "all",
+    ) -> str:
+        return await _execute_task_impl(
+            task=task,
+            workspace_dir=workspace_dir,
+            max_iterations=max_iterations,
+            skill_dirs=skill_dirs,
+            search_scope=search_scope,
+        )
+
+    async def search_skills(
+        self,
+        query: str,
+        source: str = "all",
+        limit: int = 20,
+        auto_import: bool = True,
+    ) -> str:
+        return await _search_skills_impl(
+            query=query,
+            source=source,
+            limit=limit,
+            auto_import=auto_import,
+        )
+
+    async def fix_skill(
+        self,
+        skill_dir: str,
+        direction: str,
+    ) -> str:
+        return await _fix_skill_impl(skill_dir=skill_dir, direction=direction)
+
+    async def upload_skill(
+        self,
+        skill_dir: str,
+        visibility: str = "public",
+        origin: str | None = None,
+        parent_skill_ids: list[str] | None = None,
+        tags: list[str] | None = None,
+        created_by: str | None = None,
+        change_summary: str | None = None,
+    ) -> str:
+        return await _upload_skill_impl(
+            skill_dir=skill_dir,
+            visibility=visibility,
+            origin=origin,
+            parent_skill_ids=parent_skill_ids,
+            tags=tags,
+            created_by=created_by,
+            change_summary=change_summary,
+        )
+
+
+register_main_tools(mcp, _DirectMainToolImplementation())
+
+
 def run_mcp_server() -> None:
     """Console-script entry point for ``openspace-mcp``."""
     import argparse
 
     parser = argparse.ArgumentParser(description="OpenSpace MCP Server")
-    parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse", "streamable-http"],
+        default="stdio",
+    )
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    if args.transport == "stdio":
+    if args.transport == "stdio" or os.environ.get("OPENSPACE_MCP_DAEMON") == "1":
         _maybe_start_idle_watchdog()
+    if args.transport == "streamable-http":
+        _maybe_start_main_daemon_embedding_prewarm()
 
-    if args.transport == "sse":
-        mcp.run(transport="sse", sse_params={"port": args.port})
-    else:
-        mcp.run(transport="stdio")
+    mcp.settings.port = args.port
+    mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":

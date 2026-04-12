@@ -54,10 +54,58 @@ The intended machine-wide setup is:
    - set `OPENSPACE_WORKSPACE`
    - route project skills to `~/.codex/projects/<repo>/skills`
    - include common global skills from `~/.codex/skills`
+   - call the shared `stdio` proxy entrypoint
+   - default `openspace` to `OPENSPACE_MCP_PROXY_MODE=daemon`
+   - default `openspace_evolution` to `OPENSPACE_MCP_PROXY_MODE=daemon`
+   - place per-instance daemon state under `OPENSPACE_MCP_DAEMON_STATE_DIR` unless an override is already set
 3. Global `~/.codex/AGENTS.md` tells Codex:
    - to prefer project skill routing
    - to auto-run sidecar evolution for non-trivial repo work
    - to treat missing `git init` as a repo bootstrap issue
+
+## Daemon / Proxy V1
+
+The global and local launchers keep the same wrapper names and the same MCP config shape, but they now sit in front of a shared-daemon topology:
+
+- Codex still talks to stdio wrapper scripts.
+- The wrapper scripts keep the existing command names but route into `openspace.mcp_proxy`.
+- Both main and evolution now default to `OPENSPACE_MCP_PROXY_MODE=daemon`.
+- The proxy path resolves or starts a per-instance daemon using `OPENSPACE_MCP_DAEMON_STATE_DIR`.
+- The daemon owns the long-lived OpenSpace engine and serves it over localhost transport.
+
+This keeps the external Codex contract stable while reducing the number of overlapping OpenSpace engine processes.
+
+### Fallbacks
+
+The proxy surface supports two internal overrides:
+
+- `OPENSPACE_MCP_PROXY_MODE=direct` restores the old direct stdio behavior for debugging or rollback.
+- `OPENSPACE_MCP_DAEMON_STATE_DIR=/custom/path` moves daemon state to a different local directory.
+
+The repo-local `scripts/codex-openspace` helper writes the same daemon defaults into the generated profile so local and global setups stay aligned.
+
+### Daemon State Metadata
+
+Each per-key daemon writes a JSON record under `OPENSPACE_MCP_DAEMON_STATE_DIR` named like:
+
+- `main-<instance_key>.json`
+- `evolution-<instance_key>.json`
+
+For the main daemon path, the record now distinguishes two lifecycle phases:
+
+- `ready=true`: the daemon is reachable and `list_tools` has succeeded.
+- `warmed=true`: background prewarm has completed, so the local embedding backend and candidate cache are ready.
+
+Useful timestamps:
+
+- `started_at`: child process spawn time
+- `ready_at`: first confirmed MCP-ready time
+- `warmed_at`: prewarm completion time
+
+This makes it possible to tell the difference between:
+
+- daemon is up but still warming
+- daemon is fully warmed and ready for low-latency calls
 
 ## Reinstalling the Global Wrappers
 

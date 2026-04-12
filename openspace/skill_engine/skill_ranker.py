@@ -172,6 +172,43 @@ class SkillRanker:
             self._save_cache()
         return emb
 
+    def get_cached_embedding(self, skill_id: str) -> Optional[List[float]]:
+        """Return a cached embedding without computing a new one."""
+        return self._embedding_cache.get(skill_id)
+
+    def prime_candidates(self, candidates: List[SkillCandidate]) -> int:
+        """Populate embeddings for candidates, saving cache once at the end.
+
+        Returns the number of candidates that ended with an embedding, whether
+        loaded from cache or computed during this call.
+        """
+        warmed = 0
+        cache_changed = False
+
+        for candidate in candidates:
+            if candidate.embedding:
+                warmed += 1
+                continue
+
+            cached = self._embedding_cache.get(candidate.skill_id)
+            if cached:
+                candidate.embedding = cached
+                warmed += 1
+                continue
+
+            text = self._build_embedding_text(candidate)
+            emb = self._generate_embedding(text)
+            if emb:
+                candidate.embedding = emb
+                self._embedding_cache[candidate.skill_id] = emb
+                warmed += 1
+                cache_changed = True
+
+        if cache_changed:
+            self._save_cache()
+
+        return warmed
+
     def invalidate_cache(self, skill_id: str) -> None:
         """Remove a skill's cached embedding (e.g. after evolution)."""
         self._embedding_cache.pop(skill_id, None)

@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+from openspace.mcp_tool_registration import register_evolution_tools
 
 class _MCPSafeStdout:
     """Stdout wrapper: binary (.buffer) -> real stdout, text (.write) -> stderr."""
@@ -504,8 +505,7 @@ async def _register_extra_skill_dirs(openspace, dirs: List[Path]) -> None:
         await skill_store.sync_from_registry(metas)
 
 
-@mcp.tool()
-async def evolve_from_context(
+async def _evolve_from_context_impl(
     task: str,
     summary: str,
     workspace_dir: str | None = None,
@@ -662,21 +662,48 @@ async def evolve_from_context(
         _mark_request_end()
 
 
+class _DirectEvolutionToolImplementation:
+    async def evolve_from_context(
+        self,
+        task: str,
+        summary: str,
+        workspace_dir: str | None = None,
+        file_paths: list[str] | None = None,
+        max_skills: int = 3,
+        skill_dirs: list[str] | None = None,
+        output_dir: str | None = None,
+    ) -> str:
+        return await _evolve_from_context_impl(
+            task=task,
+            summary=summary,
+            workspace_dir=workspace_dir,
+            file_paths=file_paths,
+            max_skills=max_skills,
+            skill_dirs=skill_dirs,
+            output_dir=output_dir,
+        )
+
+
+register_evolution_tools(mcp, _DirectEvolutionToolImplementation())
+
+
 def run_mcp_server() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="OpenSpace Evolution MCP Server")
-    parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse", "streamable-http"],
+        default="stdio",
+    )
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    if args.transport == "stdio":
+    if args.transport == "stdio" or os.environ.get("OPENSPACE_MCP_DAEMON") == "1":
         _maybe_start_idle_watchdog()
 
-    if args.transport == "sse":
-        mcp.run(transport="sse", sse_params={"port": args.port})
-    else:
-        mcp.run(transport="stdio")
+    mcp.settings.port = args.port
+    mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":

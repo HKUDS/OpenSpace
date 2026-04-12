@@ -158,6 +158,9 @@ class SkillSearchEngine:
     ) -> List[Dict[str, Any]]:
         """Compute hybrid score = vector_score + lexical_boost."""
         from openspace.cloud.embedding import cosine_similarity
+        from openspace.skill_engine.skill_ranker import SkillCandidate, SkillRanker
+
+        ranker: Optional[SkillRanker] = None
 
         scored = []
         for candidate in candidates:
@@ -170,6 +173,32 @@ class SkillSearchEngine:
             ranking_signal_score = 0.0
             if query_embedding:
                 candidate_embedding = candidate.get("_embedding")
+                if (
+                    candidate_embedding is None
+                    and candidate.get("source") == "openspace-local"
+                    and candidate.get("_embedding_text")
+                ):
+                    if ranker is None:
+                        ranker = SkillRanker(enable_cache=True)
+
+                    cached = ranker.get_cached_embedding(candidate.get("skill_id", ""))
+                    if cached:
+                        candidate_embedding = cached
+                    else:
+                        skill_candidate = SkillCandidate(
+                            skill_id=candidate.get("skill_id", ""),
+                            name=candidate_name,
+                            description=candidate.get("description", ""),
+                            body="",
+                            metadata=candidate,
+                        )
+                        skill_candidate.embedding_text = candidate.get("_embedding_text", "")
+                        ranker.prime_candidates([skill_candidate])
+                        candidate_embedding = skill_candidate.embedding
+
+                    if candidate_embedding:
+                        candidate["_embedding"] = candidate_embedding
+
                 if candidate_embedding and isinstance(candidate_embedding, list):
                     vector_score = cosine_similarity(query_embedding, candidate_embedding)
                     ranking_signal_score = vector_score
@@ -423,14 +452,6 @@ async def hybrid_search_skills(
     query_embedding: Optional[List[float]] = None
     try:
         query_embedding = await asyncio.to_thread(generate_embedding, normalized_query)
-        if query_embedding:
-            for candidate in candidates:
-                if not candidate.get("_embedding") and candidate.get("_embedding_text"):
-                    candidate_embedding = await asyncio.to_thread(
-                        generate_embedding, candidate["_embedding_text"],
-                    )
-                    if candidate_embedding:
-                        candidate["_embedding"] = candidate_embedding
     except Exception:
         pass
 

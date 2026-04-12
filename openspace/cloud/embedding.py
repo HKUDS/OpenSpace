@@ -31,6 +31,7 @@ _OPENAI_BASE = "https://api.openai.com/v1"
 _VALID_BACKENDS = {"auto", "local", "remote"}
 _LOCAL_EMBEDDER = None
 _LOCAL_EMBEDDER_MODEL = None
+_EMBEDDING_WARMUP_TEXT = "openspace skill embedding warmup"
 
 
 def resolve_skill_embedding_backend() -> str:
@@ -54,6 +55,17 @@ def resolve_skill_embedding_model(backend: Optional[str] = None) -> str:
         if not remote_key:
             return SKILL_LOCAL_EMBEDDING_MODEL
     return SKILL_REMOTE_EMBEDDING_MODEL
+
+
+def using_local_skill_embeddings(backend: Optional[str] = None) -> bool:
+    """Return whether skill embeddings resolve to the local fastembed path."""
+    backend = backend or resolve_skill_embedding_backend()
+    if backend == "local":
+        return True
+    if backend == "remote":
+        return False
+    remote_key, _ = _resolve_remote_embedding_api()
+    return not bool(remote_key)
 
 
 def _resolve_remote_embedding_api() -> Tuple[Optional[str], str]:
@@ -174,6 +186,21 @@ def _generate_local_embedding(text: str, model_name: str) -> Optional[List[float
     except Exception as exc:
         logger.warning("Local skill embedding generation failed: %s", exc)
         return None
+
+
+def prewarm_local_skill_embedding_backend() -> bool:
+    """Warm the local skill embedding backend when local routing is active.
+
+    Returns True when the local backend is active and the embedder produced
+    a warmup embedding, False otherwise.
+    """
+    backend = resolve_skill_embedding_backend()
+    if not using_local_skill_embeddings(backend):
+        return False
+
+    model_name = resolve_skill_embedding_model(backend)
+    vector = _generate_local_embedding(_EMBEDDING_WARMUP_TEXT, model_name)
+    return vector is not None
 
 
 def generate_embedding(text: str, api_key: Optional[str] = None) -> Optional[List[float]]:

@@ -46,6 +46,7 @@ sync_profile_dir() {
 
 bootstrap_profile_home() {
   mkdir -p "$PROFILE_HOME"
+  mkdir -p "$PROFILE_HOME/state/openspace"
 
   sync_profile_dir "plugins"
   sync_profile_dir "skills"
@@ -94,12 +95,35 @@ enabled = false
 url = "https://mcp.linear.app/mcp"
 
 [mcp_servers.openspace]
-command = "$REPO_ROOT/.venv/bin/openspace-mcp"
-args = ["--transport", "stdio"]
+command = "$REPO_ROOT/.venv/bin/python"
+args = ["-m", "openspace.mcp_proxy", "--kind", "main", "--transport", "stdio"]
 
 [mcp_servers.openspace.env]
 OPENSPACE_HOST_SKILL_DIRS = "$PROFILE_HOME/skills"
 OPENSPACE_WORKSPACE = "$REPO_ROOT"
+OPENSPACE_MCP_PROXY_MODE = "daemon"
+OPENSPACE_MCP_DAEMON_STATE_DIR = "$PROFILE_HOME/state/openspace"
+OPENSPACE_MODEL = "$OPENSPACE_MODEL"
+OPENSPACE_LLM_API_KEY = "$OPENSPACE_LLM_API_KEY"
+OPENSPACE_LLM_API_BASE = "$OPENSPACE_LLM_API_BASE"
+OPENSPACE_LLM_OPENAI_STREAM_COMPAT = "$OPENSPACE_LLM_OPENAI_STREAM_COMPAT"
+OPENSPACE_SKILL_EMBEDDING_BACKEND = "$OPENSPACE_SKILL_EMBEDDING_BACKEND"
+OPENSPACE_SKILL_EMBEDDING_MODEL = "$OPENSPACE_SKILL_EMBEDDING_MODEL"
+OPENSPACE_SKILL_EMBEDDING_API_KEY = "${OPENSPACE_SKILL_EMBEDDING_API_KEY:-}"
+OPENSPACE_SKILL_EMBEDDING_API_BASE = "${OPENSPACE_SKILL_EMBEDDING_API_BASE:-}"
+EMBEDDING_API_KEY = "${EMBEDDING_API_KEY:-}"
+EMBEDDING_BASE_URL = "${EMBEDDING_BASE_URL:-}"
+EMBEDDING_MODEL = "${EMBEDDING_MODEL:-}"
+
+[mcp_servers.openspace_evolution]
+command = "$REPO_ROOT/.venv/bin/python"
+args = ["-m", "openspace.mcp_proxy", "--kind", "evolution", "--transport", "stdio"]
+
+[mcp_servers.openspace_evolution.env]
+OPENSPACE_HOST_SKILL_DIRS = "$PROFILE_HOME/skills"
+OPENSPACE_WORKSPACE = "$REPO_ROOT"
+OPENSPACE_MCP_PROXY_MODE = "daemon"
+OPENSPACE_MCP_DAEMON_STATE_DIR = "$PROFILE_HOME/state/openspace"
 OPENSPACE_MODEL = "$OPENSPACE_MODEL"
 OPENSPACE_LLM_API_KEY = "$OPENSPACE_LLM_API_KEY"
 OPENSPACE_LLM_API_BASE = "$OPENSPACE_LLM_API_BASE"
