@@ -146,3 +146,90 @@ def test_update_current_daemon_status_timestamps_after_lock_wait(monkeypatch, tm
     assert updated is not None
     assert updated.warmed is True
     assert updated.warmed_at == 107.5
+
+
+def test_update_current_daemon_status_tracks_last_used_and_active_requests(monkeypatch, tmp_path) -> None:
+    identity = _build_identity(tmp_path)
+    metadata_path = identity.metadata_path
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    shared_mcp_runtime._write_record(metadata_path, _build_record(identity))
+
+    monkeypatch.setenv("OPENSPACE_MCP_INSTANCE_KEY", identity.instance_key)
+    monkeypatch.setenv("OPENSPACE_MCP_DAEMON_STATE_DIR", identity.state_dir)
+
+    monkeypatch.setattr(shared_mcp_runtime.time, "time", lambda: 111.0)
+    started = shared_mcp_runtime.update_current_daemon_status(
+        "main",
+        touch=True,
+        active_delta=1,
+    )
+    assert started is not None
+    assert started.active_requests == 1
+    assert started.last_used_at == 111.0
+
+    monkeypatch.setattr(shared_mcp_runtime.time, "time", lambda: 114.5)
+    finished = shared_mcp_runtime.update_current_daemon_status(
+        "main",
+        touch=True,
+        active_delta=-1,
+    )
+    assert finished is not None
+    assert finished.active_requests == 0
+    assert finished.last_used_at == 114.5
+
+
+def test_reap_state_dir_records_limits_live_daemons_per_kind(monkeypatch, tmp_path) -> None:
+    records = []
+    for index, last_used_at in enumerate((10.0, 20.0, 30.0), start=1):
+        identity = shared_mcp_runtime.MCPDaemonIdentity(
+            server_kind="main",
+            workspace=f"/tmp/workspace-{index}",
+            resolved_model="unit-model",
+            llm_kwargs_fingerprint=f"llm-{index}",
+            backend_scope=("shell",),
+            host_skill_dirs=(f"/tmp/skills-{index}",),
+            grounding_config_fingerprint=f"cfg-{index}",
+            instance_key=f"key-{index}",
+            state_dir=str(tmp_path),
+        )
+        record = shared_mcp_runtime.MCPDaemonRecord(
+            server_kind="main",
+            instance_key=identity.instance_key,
+            pid=4000 + index,
+            port=56000 + index,
+            workspace=identity.workspace,
+            resolved_model=identity.resolved_model,
+            llm_kwargs_fingerprint=identity.llm_kwargs_fingerprint,
+            backend_scope=list(identity.backend_scope),
+            host_skill_dirs=list(identity.host_skill_dirs),
+            grounding_config_fingerprint=identity.grounding_config_fingerprint,
+            started_at=1.0,
+            log_path=str(tmp_path / f"{identity.instance_key}.log"),
+            ready=True,
+            warmed=True,
+            last_used_at=last_used_at,
+            active_requests=0,
+        )
+        shared_mcp_runtime._write_record(identity.metadata_path, record)
+        records.append(record)
+
+    reaped: list[str] = []
+    monkeypatch.setattr(shared_mcp_runtime, "_max_daemons_per_kind", lambda: 2)
+    monkeypatch.setattr(shared_mcp_runtime, "_pid_exists", lambda pid: True)
+    monkeypatch.setattr(shared_mcp_runtime, "_pid_matches_server", lambda record: True)
+    monkeypatch.setattr(
+        shared_mcp_runtime,
+        "_terminate_record_process",
+        lambda record: reaped.append(record.instance_key),
+    )
+
+    shared_mcp_runtime._reap_state_dir_records(
+        str(tmp_path),
+        "main",
+        keep_instance_key="key-3",
+    )
+
+    assert reaped == ["key-1"]
+    assert not (tmp_path / "main-key-1.json").exists()
+    assert (tmp_path / "main-key-2.json").exists()
+    assert (tmp_path / "main-key-3.json").exists()

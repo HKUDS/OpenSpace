@@ -212,7 +212,9 @@ class Logger:
 
             # Console Handler
             if log_to_console:
-                ch = logging.StreamHandler(sys.stdout)
+                # Logs should never share stdout with structured program output
+                # such as MCP stdio frames.
+                ch = logging.StreamHandler(sys.stderr)
                 ch.setLevel(resolved_level)
                 ch.setFormatter(console_formatter)
                 target_logger.addHandler(ch)
@@ -229,7 +231,8 @@ class Logger:
                 
                 # Record log file location
                 if not cls._configured:
-                    print(f"Log file enabled: {actual_log_file}")
+                    sys.stderr.write(f"Log file enabled: {actual_log_file}\n")
+                    sys.stderr.flush()
 
             cls._configured = True
 
@@ -293,7 +296,7 @@ class Logger:
 
     @staticmethod
     def _stdout_supports_color() -> bool:
-        return sys.stdout.isatty() and not os.getenv("NO_COLOR")
+        return sys.stderr.isatty() and not os.getenv("NO_COLOR")
 
     @classmethod
     def _resolve_level(cls, level: Optional[int]) -> int:

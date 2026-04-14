@@ -34,6 +34,11 @@ def test_stdio_entrypoint_uses_stdio_transport(module_name, monkeypatch) -> None
         "_maybe_start_idle_watchdog",
         lambda: watchdog_calls.append(True),
     )
+    monkeypatch.setattr(
+        module,
+        "_install_signal_handlers",
+        lambda: None,
+    )
 
     module.run_mcp_server()
 
@@ -62,6 +67,11 @@ def test_sse_entrypoint_does_not_forward_sse_params(module_name, monkeypatch) ->
         module,
         "_maybe_start_idle_watchdog",
         lambda: watchdog_calls.append(True),
+    )
+    monkeypatch.setattr(
+        module,
+        "_install_signal_handlers",
+        lambda: None,
     )
 
     module.run_mcp_server()
@@ -94,6 +104,11 @@ def test_streamable_http_entrypoint_uses_watchdog_for_daemon(
         module,
         "_maybe_start_idle_watchdog",
         lambda: watchdog_calls.append(True),
+    )
+    monkeypatch.setattr(
+        module,
+        "_install_signal_handlers",
+        lambda: None,
     )
     monkeypatch.setenv("OPENSPACE_MCP_DAEMON", "1")
 

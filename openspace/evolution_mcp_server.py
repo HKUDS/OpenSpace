@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import subprocess
+import signal
 import sys
 import threading
 import time
@@ -21,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+from openspace.mcp_stdio import maybe_redirect_stderr_to_file
 from openspace.mcp_tool_registration import register_evolution_tools
 
 class _MCPSafeStdout:
@@ -82,11 +84,7 @@ _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 _LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 _real_stdout = sys.stdout
-if os.name == "nt":
-    _stderr_file = open(
-        _LOG_DIR / "evolution_mcp_stderr.log", "a", encoding="utf-8", buffering=1
-    )
-    sys.stderr = _stderr_file
+maybe_redirect_stderr_to_file(_LOG_DIR, "evolution_mcp_stderr.log")
 
 sys.stdout = _MCPSafeStdout(_real_stdout, sys.stderr)
 
@@ -117,6 +115,8 @@ _idle_watchdog_started = False
 _activity_lock = threading.Lock()
 _active_request_count = 0
 _last_activity_at = time.monotonic()
+_shutdown_started = False
+_shutdown_lock = threading.Lock()
 
 
 def _json_ok(data: Any) -> str:
@@ -132,6 +132,9 @@ def _mark_request_start() -> None:
     with _activity_lock:
         _active_request_count += 1
         _last_activity_at = time.monotonic()
+    from openspace.shared_mcp_runtime import update_current_daemon_status
+
+    update_current_daemon_status("evolution", touch=True, active_delta=1)
 
 
 def _mark_request_end() -> None:
@@ -139,6 +142,51 @@ def _mark_request_end() -> None:
     with _activity_lock:
         _active_request_count = max(0, _active_request_count - 1)
         _last_activity_at = time.monotonic()
+    from openspace.shared_mcp_runtime import update_current_daemon_status
+
+    update_current_daemon_status("evolution", touch=True, active_delta=-1)
+
+
+def _shutdown_worker(reason: str) -> None:
+    logger.info("Shutting down OpenSpace evolution daemon: %s", reason)
+    instance = _openspace_instance
+    if instance is not None and instance.is_initialized():
+        try:
+            asyncio.run(asyncio.wait_for(instance.cleanup(), timeout=10.0))
+        except Exception as exc:
+            logger.warning("OpenSpace evolution cleanup during shutdown failed: %s", exc)
+    logging.shutdown()
+    os._exit(0)
+
+
+def _begin_shutdown(reason: str) -> None:
+    global _shutdown_started
+    with _shutdown_lock:
+        if _shutdown_started:
+            return
+        _shutdown_started = True
+
+    threading.Thread(
+        target=_shutdown_worker,
+        args=(reason,),
+        name="openspace-evolution-shutdown",
+        daemon=True,
+    ).start()
+
+
+def _install_signal_handlers() -> None:
+    def _handle(signum, _frame) -> None:
+        try:
+            signame = signal.Signals(signum).name
+        except Exception:
+            signame = str(signum)
+        _begin_shutdown(f"signal {signame}")
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(signum, _handle)
+        except Exception:
+            continue
 
 
 def _idle_watchdog_loop(idle_timeout_seconds: int) -> None:
@@ -154,8 +202,8 @@ def _idle_watchdog_loop(idle_timeout_seconds: int) -> None:
                 "Evolution MCP idle watchdog exiting process after %.1fs idle with no active requests",
                 idle_for,
             )
-            logging.shutdown()
-            os._exit(0)
+            _begin_shutdown(f"idle timeout after {idle_for:.1f}s")
+            return
 
 
 def _maybe_start_idle_watchdog() -> None:
@@ -700,6 +748,7 @@ def run_mcp_server() -> None:
     args = parser.parse_args()
 
     if args.transport == "stdio" or os.environ.get("OPENSPACE_MCP_DAEMON") == "1":
+        _install_signal_handlers()
         _maybe_start_idle_watchdog()
 
     mcp.settings.port = args.port

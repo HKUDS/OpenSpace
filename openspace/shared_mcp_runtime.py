@@ -82,6 +82,8 @@ class MCPDaemonRecord:
     ready_at: float | None = None
     warmed_at: float | None = None
     warmup_error: str | None = None
+    last_used_at: float | None = None
+    active_requests: int = 0
 
     @property
     def url(self) -> str:
@@ -260,6 +262,82 @@ def _write_record(path: Path, record: MCPDaemonRecord) -> None:
     tmp_path.replace(path)
 
 
+def _record_last_used_at(record: MCPDaemonRecord) -> float:
+    return record.last_used_at or record.warmed_at or record.ready_at or record.started_at
+
+
+def _max_daemons_per_kind() -> int:
+    raw = os.environ.get("OPENSPACE_MCP_MAX_DAEMONS_PER_KIND", "").strip()
+    if not raw:
+        return 8
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("Invalid OPENSPACE_MCP_MAX_DAEMONS_PER_KIND=%r", raw)
+        return 8
+
+
+def _unlink_record_artifacts(record: MCPDaemonRecord, state_dir: str) -> None:
+    metadata_path, lock_path = _metadata_paths(record.server_kind, record.instance_key, state_dir)
+    with contextlib.suppress(FileNotFoundError):
+        metadata_path.unlink()
+    with contextlib.suppress(FileNotFoundError):
+        lock_path.unlink()
+
+
+def _collect_records(state_dir: str, server_kind: ServerKind) -> list[MCPDaemonRecord]:
+    state_path = Path(state_dir)
+    if not state_path.is_dir():
+        return []
+
+    records: list[MCPDaemonRecord] = []
+    for metadata_path in sorted(state_path.glob(f"{server_kind}-*.json")):
+        record = _read_record(metadata_path)
+        if record is not None:
+            records.append(record)
+    return records
+
+
+def _reap_state_dir_records(
+    state_dir: str,
+    server_kind: ServerKind,
+    *,
+    keep_instance_key: str | None = None,
+) -> None:
+    max_records = _max_daemons_per_kind()
+    live_records: list[MCPDaemonRecord] = []
+
+    for record in _collect_records(state_dir, server_kind):
+        if not _pid_exists(record.pid) or not _pid_matches_server(record):
+            _unlink_record_artifacts(record, state_dir)
+            continue
+        live_records.append(record)
+
+    if max_records <= 0 or len(live_records) <= max_records:
+        return
+
+    remaining = len(live_records)
+    for record in sorted(live_records, key=_record_last_used_at):
+        if remaining <= max_records:
+            break
+        if keep_instance_key and record.instance_key == keep_instance_key:
+            continue
+        if record.active_requests > 0:
+            continue
+
+        logger.info(
+            "Reaping %s daemon pid=%s instance_key=%s last_used_at=%.3f to keep fleet <= %s",
+            record.server_kind,
+            record.pid,
+            record.instance_key,
+            _record_last_used_at(record),
+            max_records,
+        )
+        _terminate_record_process(record)
+        _unlink_record_artifacts(record, state_dir)
+        remaining -= 1
+
+
 def _metadata_paths(
     server_kind: ServerKind,
     instance_key: str,
@@ -278,6 +356,8 @@ def update_current_daemon_status(
     ready: bool | None = None,
     warmed: bool | None = None,
     warmup_error: str | None = None,
+    touch: bool = False,
+    active_delta: int = 0,
 ) -> MCPDaemonRecord | None:
     instance_key = os.environ.get("OPENSPACE_MCP_INSTANCE_KEY", "").strip()
     state_dir = os.environ.get("OPENSPACE_MCP_DAEMON_STATE_DIR", "").strip()
@@ -302,6 +382,12 @@ def update_current_daemon_status(
                 updates["warmed_at"] = now
         if warmup_error is not None:
             updates["warmup_error"] = warmup_error
+
+        if active_delta:
+            updates["active_requests"] = max(0, record.active_requests + active_delta)
+            touch = True
+        if touch:
+            updates["last_used_at"] = now
 
         if not updates:
             return record
@@ -412,6 +498,7 @@ def _spawn_daemon(identity: MCPDaemonIdentity, port: int) -> MCPDaemonRecord:
         **popen_kwargs,
     )
     log_handle.close()
+    started_at = time.time()
     return MCPDaemonRecord(
         server_kind=identity.server_kind,
         instance_key=identity.instance_key,
@@ -423,8 +510,9 @@ def _spawn_daemon(identity: MCPDaemonIdentity, port: int) -> MCPDaemonRecord:
         backend_scope=list(identity.backend_scope),
         host_skill_dirs=list(identity.host_skill_dirs),
         grounding_config_fingerprint=identity.grounding_config_fingerprint,
-        started_at=time.time(),
+        started_at=started_at,
         log_path=str(log_path),
+        last_used_at=started_at,
     )
 
 
@@ -466,10 +554,15 @@ async def ensure_daemon(server_kind: ServerKind) -> MCPDaemonRecord:
     identity.metadata_path.parent.mkdir(parents=True, exist_ok=True)
 
     with _FileLock(identity.lock_path):
+        _reap_state_dir_records(
+            identity.state_dir,
+            server_kind,
+            keep_instance_key=identity.instance_key,
+        )
         existing = _read_record(identity.metadata_path)
         if existing and _pid_exists(existing.pid) and await _probe_record(existing):
+            now = time.time()
             if not existing.ready or (server_kind != "main" and not existing.warmed):
-                now = time.time()
                 refreshed = MCPDaemonRecord(
                     **{
                         **asdict(existing),
@@ -480,16 +573,23 @@ async def ensure_daemon(server_kind: ServerKind) -> MCPDaemonRecord:
                             existing.warmed_at
                             or (now if (existing.warmed or server_kind != "main") else None)
                         ),
+                        "last_used_at": now,
                     }
                 )
                 _write_record(identity.metadata_path, refreshed)
                 return refreshed or existing
-            return existing
+            refreshed = MCPDaemonRecord(
+                **{
+                    **asdict(existing),
+                    "last_used_at": now,
+                }
+            )
+            _write_record(identity.metadata_path, refreshed)
+            return refreshed
 
         if existing:
             _terminate_record_process(existing)
-            with contextlib.suppress(FileNotFoundError):
-                identity.metadata_path.unlink()
+            _unlink_record_artifacts(existing, identity.state_dir)
 
         last_error: Exception | None = None
         for _ in range(3):
@@ -504,6 +604,7 @@ async def ensure_daemon(server_kind: ServerKind) -> MCPDaemonRecord:
                         "ready_at": now,
                         "warmed": (server_kind != "main"),
                         "warmed_at": (now if server_kind != "main" else None),
+                        "last_used_at": now,
                     }
                 )
                 _write_record(identity.metadata_path, updated)
@@ -513,7 +614,6 @@ async def ensure_daemon(server_kind: ServerKind) -> MCPDaemonRecord:
                 f"Daemon for key={identity.instance_key} did not become ready"
             )
             _terminate_record_process(record)
-            with contextlib.suppress(FileNotFoundError):
-                identity.metadata_path.unlink()
+            _unlink_record_artifacts(record, identity.state_dir)
 
         raise last_error or RuntimeError("Failed to start daemon")

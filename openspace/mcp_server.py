@@ -21,12 +21,14 @@ import inspect
 import json
 import logging
 import os
+import signal
 import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from openspace.mcp_stdio import maybe_redirect_stderr_to_file
 from openspace.mcp_tool_registration import register_main_tools
 from openspace.shared_mcp_runtime import update_current_daemon_status
 
@@ -89,17 +91,7 @@ _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 _LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 _real_stdout = sys.stdout
-
-# Windows pipe buffers are small. When using stdio MCP transport,
-# the parent process only reads stdout for MCP messages and does NOT
-# drain stderr. Heavy log/print output during execute_task fills the stderr
-# pipe buffer, blocking this process on write() → deadlock → timeout.
-# Redirect stderr to a log file on Windows to prevent this.
-if os.name == "nt":
-    _stderr_file = open(
-        _LOG_DIR / "mcp_stderr.log", "a", encoding="utf-8", buffering=1
-    )
-    sys.stderr = _stderr_file
+maybe_redirect_stderr_to_file(_LOG_DIR, "mcp_stderr.log")
 
 sys.stdout = _MCPSafeStdout(_real_stdout, sys.stderr)
 
@@ -132,6 +124,8 @@ _active_request_count = 0
 _last_activity_at = time.monotonic()
 _embedding_prewarm_started = False
 _embedding_prewarm_lock = threading.Lock()
+_shutdown_started = False
+_shutdown_lock = threading.Lock()
 
 # Internal state: tracks bot skill directories already registered this session.
 _registered_skill_dirs: set = set()
@@ -632,6 +626,7 @@ def _mark_request_start() -> None:
     with _activity_lock:
         _active_request_count += 1
         _last_activity_at = time.monotonic()
+    update_current_daemon_status("main", touch=True, active_delta=1)
 
 
 def _mark_request_end() -> None:
@@ -639,6 +634,49 @@ def _mark_request_end() -> None:
     with _activity_lock:
         _active_request_count = max(0, _active_request_count - 1)
         _last_activity_at = time.monotonic()
+    update_current_daemon_status("main", touch=True, active_delta=-1)
+
+
+def _shutdown_worker(reason: str) -> None:
+    logger.info("Shutting down OpenSpace MCP daemon: %s", reason)
+    instance = _openspace_instance
+    if instance is not None and instance.is_initialized():
+        try:
+            asyncio.run(asyncio.wait_for(instance.cleanup(), timeout=10.0))
+        except Exception as exc:
+            logger.warning("OpenSpace MCP cleanup during shutdown failed: %s", exc)
+    logging.shutdown()
+    os._exit(0)
+
+
+def _begin_shutdown(reason: str) -> None:
+    global _shutdown_started
+    with _shutdown_lock:
+        if _shutdown_started:
+            return
+        _shutdown_started = True
+
+    threading.Thread(
+        target=_shutdown_worker,
+        args=(reason,),
+        name="openspace-mcp-shutdown",
+        daemon=True,
+    ).start()
+
+
+def _install_signal_handlers() -> None:
+    def _handle(signum, _frame) -> None:
+        try:
+            signame = signal.Signals(signum).name
+        except Exception:
+            signame = str(signum)
+        _begin_shutdown(f"signal {signame}")
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(signum, _handle)
+        except Exception:
+            continue
 
 
 def _idle_watchdog_loop(idle_timeout_seconds: int) -> None:
@@ -654,8 +692,8 @@ def _idle_watchdog_loop(idle_timeout_seconds: int) -> None:
                 "MCP idle watchdog exiting process after %.1fs idle with no active requests",
                 idle_for,
             )
-            logging.shutdown()
-            os._exit(0)
+            _begin_shutdown(f"idle timeout after {idle_for:.1f}s")
+            return
 
 
 def _maybe_start_idle_watchdog() -> None:
@@ -1142,6 +1180,7 @@ def run_mcp_server() -> None:
     args = parser.parse_args()
 
     if args.transport == "stdio" or os.environ.get("OPENSPACE_MCP_DAEMON") == "1":
+        _install_signal_handlers()
         _maybe_start_idle_watchdog()
     if args.transport == "streamable-http":
         _maybe_start_main_daemon_embedding_prewarm()

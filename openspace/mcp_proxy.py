@@ -1,20 +1,27 @@
 from __future__ import annotations
 
+import asyncio
 import argparse
 import inspect
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent
 
+from openspace.mcp_stdio import maybe_redirect_stderr_to_file
 from openspace.grounding.backends.mcp.client import MCPClient
 from openspace.mcp_tool_registration import (
     register_evolution_tools,
     register_main_tools,
 )
 from openspace.shared_mcp_runtime import ServerKind, ensure_daemon
+
+
+_LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
+maybe_redirect_stderr_to_file(_LOG_DIR, "mcp_proxy_stderr.log")
 
 
 def _proxy_mode_for(server_kind: ServerKind) -> str:
@@ -45,45 +52,38 @@ def _extract_text_payload(result: Any) -> str:
 class _RemoteProxyBase:
     def __init__(self, server_kind: ServerKind):
         self._server_kind = server_kind
-        self._client: MCPClient | None = None
-        self._current_url: str | None = None
 
-    async def _get_client(self) -> MCPClient:
+    async def _call_remote_tool_once(self, tool_name: str, args: dict[str, Any]) -> str:
         record = await ensure_daemon(self._server_kind)
-        if self._client is not None and self._current_url == record.url:
-            return self._client
-
-        await self._reset_client()
-
-        self._client = MCPClient(
+        client = MCPClient(
             config={"mcpServers": {"daemon": {"url": record.url}}},
             timeout=10.0,
             sse_read_timeout=60 * 60.0,
             check_dependencies=False,
         )
-        self._current_url = record.url
-        return self._client
+        try:
+            session = await client.create_session("daemon", auto_initialize=True)
+            if session is None:
+                raise RuntimeError("Failed to create daemon MCP session")
+            result = await session.connector.call_tool(tool_name, args)
+            return _extract_text_payload(result)
+        finally:
+            await client.close_all_sessions()
 
-    async def _reset_client(self) -> None:
-        if self._client is not None:
-            await self._client.close_all_sessions()
-        self._client = None
-        self._current_url = None
+    def _call_remote_tool_blocking(self, tool_name: str, args: dict[str, Any]) -> str:
+        return asyncio.run(self._call_remote_tool_once(tool_name, args))
 
     async def _call_remote_tool(self, tool_name: str, args: dict[str, Any]) -> str:
         for attempt in range(2):
             try:
-                client = await self._get_client()
-                session = await client.create_session("daemon", auto_initialize=True)
-                if session is None:
-                    raise RuntimeError("Failed to create daemon MCP session")
-                result = await session.connector.call_tool(tool_name, args)
-                return _extract_text_payload(result)
+                return await asyncio.to_thread(
+                    self._call_remote_tool_blocking,
+                    tool_name,
+                    args,
+                )
             except Exception as exc:
-                if attempt == 0:
-                    await self._reset_client()
-                    continue
-                return _json_error(exc, status="error")
+                if attempt == 1:
+                    return _json_error(exc, status="error")
         return _json_error("Unreachable proxy retry path", status="error")
 
 
