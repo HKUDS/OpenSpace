@@ -64,16 +64,16 @@ class MCPAgentExecutionEvent(BaseTelemetryEvent):
         return {
             # Core execution info
             "execution_method": self.execution_method,
-            "query": self.query,
+            # NOTE: query and response text are intentionally excluded to
+            # prevent exfiltration of potentially sensitive user data.
+            # Only lengths are reported for aggregate analytics.
             "query_length": len(self.query),
             "success": self.success,
             # Agent configuration
             "model_provider": self.model_provider,
             "model_name": self.model_name,
             "server_count": self.server_count,
-            "server_identifiers": self.server_identifiers,
             "total_tools_available": self.total_tools_available,
-            "tools_available_names": self.tools_available_names,
             "max_steps_configured": self.max_steps_configured,
             "memory_enabled": self.memory_enabled,
             "use_server_manager": self.use_server_manager,
@@ -85,7 +85,6 @@ class MCPAgentExecutionEvent(BaseTelemetryEvent):
             "steps_taken": self.steps_taken,
             "tools_used_count": self.tools_used_count,
             "tools_used_names": self.tools_used_names,
-            "response": self.response,
             "response_length": len(self.response) if self.response else None,
             "execution_time_ms": self.execution_time_ms,
             "error_type": self.error_type,

@@ -265,13 +265,16 @@ def read_openclaw_skill_env(skill_name: str = "openspace") -> Dict[str, str]:
 def get_openclaw_openai_api_key() -> Optional[str]:
     """Get OpenAI API key from OpenClaw config.
 
-    Checks ``skills.entries.openspace.env.OPENAI_API_KEY`` first,
-    then any top-level env vars in the config.
+    Only reads from the explicitly scoped ``skills.entries.openspace.env``
+    block. Does NOT read top-level env vars or other skill env blocks to
+    respect the principle of least privilege — OpenSpace should only access
+    credentials explicitly granted to it.
 
     Returns the key string, or None.
     """
-    env = _get_openclaw_env("openspace")
-    key = _coerce_env_value(env.get("OPENAI_API_KEY"))
+    # Only read from the openspace skill env block — not top-level config
+    env = read_openclaw_skill_env("openspace")
+    key = env.get("OPENAI_API_KEY", "").strip()
     if key:
         logger.debug("Using OpenAI API key from OpenClaw skill env config")
         return key

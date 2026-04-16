@@ -79,7 +79,7 @@ class Telemetry:
     _curr_user_id = None
 
     def __init__(self):
-        telemetry_disabled = os.getenv("MCP_USE_ANONYMIZED_TELEMETRY", "true").lower() == "false"
+        telemetry_disabled = os.getenv("MCP_USE_ANONYMIZED_TELEMETRY", "false").lower() == "false"
 
         if telemetry_disabled:
             self._posthog_client = None

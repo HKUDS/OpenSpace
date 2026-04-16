@@ -533,7 +533,7 @@ async def execute_task(
     workspace_dir: str | None = None,
     max_iterations: int | None = None,
     skill_dirs: list[str] | None = None,
-    search_scope: str = "all",
+    search_scope: str = "local",
 ) -> str:
     """Execute a task with OpenSpace's full grounding engine.
 
@@ -559,9 +559,10 @@ async def execute_task(
                     on every call to discover skills created since the last
                     invocation.
         search_scope: Skill search scope before execution.
-                      "all" (default) — local + cloud; falls back to local
-                      if no API key is configured.
-                      "local" — local SkillRegistry only (fast, no cloud).
+                      "local" (default) — local SkillRegistry only (fast, no cloud).
+                      "all" — local + cloud; falls back to local
+                      if no API key is configured. Use with caution: cloud
+                      skills are unverified and auto-imported without review.
     """
     try:
         openspace = await _get_openspace()
@@ -624,9 +625,9 @@ async def execute_task(
 @mcp.tool()
 async def search_skills(
     query: str,
-    source: str = "all",
+    source: str = "local",
     limit: int = 20,
-    auto_import: bool = True,
+    auto_import: bool = False,
 ) -> str:
     """Search skills across local registry and cloud community.
 
@@ -644,9 +645,10 @@ async def search_skills(
 
     Args:
         query: Search query text (natural language or keywords).
-        source: "all" (cloud + local), "local", or "cloud".  Default: "all".
+        source: "local" (default), "all" (cloud + local), or "cloud".
         limit: Maximum results to return (default: 20).
-        auto_import: Auto-download top public cloud skills (default: True).
+        auto_import: Auto-download top public cloud skills (default: False).
+                     Enable explicitly to allow unverified cloud skill imports.
     """
     try:
         from openspace.cloud.search import hybrid_search_skills
