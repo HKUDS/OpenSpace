@@ -355,8 +355,10 @@ class OpenSpace:
         self._running = True
         self._task_done.clear()
         self._last_evolved_skills = []  # Reset per-execution tracking
+        start_time = asyncio.get_running_loop().time()
         self._capture_skill_dir = capture_skill_dir
         start_time = asyncio.get_event_loop().time()
+    
         # Use external task_id if provided, otherwise generate one
         if task_id is None:
             task_id = f"task_{uuid.uuid4().hex[:12]}"
