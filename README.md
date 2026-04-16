@@ -142,6 +142,7 @@ On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)
   - [🤖 Path A: For Your Agent](#-path-a-for-your-agent)
   - [👤 Path B: As Your Co-Worker](#-path-b-as-your-co-worker)
   - [📊 Local Dashboard](#-local-dashboard)
+- [🐳 Docker Deployment](#-docker-deployment)
 - [📈 Benchmark: GDPVal](#-benchmark-gdpval)
 - [📊 Showcase: My Daily Monitor](#-showcase-my-daily-monitor)
 - [🏗️ Framework](#️-framework)
@@ -312,6 +313,117 @@ npm run dev
 </div>
 
 ---
+
+### 🐳 Docker Deployment
+
+To deploy OpenSpace without worrying about local Python and Node.js dependencies, you can use Docker containerization. We provide a `docker-compose.yml` for an easy, single-command setup with production-grade features.
+
+#### Quick Deploy (Development)
+
+This is the simplest way to get started:
+
+```bash
+# Clone the repository
+git clone https://github.com/HKUDS/OpenSpace.git
+cd OpenSpace
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env to add your LLM API keys
+
+# Start containers
+docker-compose up -d --build
+
+# Verify status
+docker-compose ps
+```
+
+Once started, access:
+- **Dashboard**: http://localhost:7788
+- **API Service**: http://localhost:7777
+
+#### Production Deployment
+
+For production, use `docker-compose.prod.yml` overlay:
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+docker-compose logs -f
+docker stats
+```
+
+Production features:
+- ✅ **Resource limits**: 4 CPU cores, 4GB memory
+- ✅ **Log management**: 50MB per file, 5 rotations
+- ✅ **Health checks**: Automatic container health detection
+- ✅ **Data persistence**: Named volumes or bind mounts
+
+#### Docker Configuration Details
+
+**🔒 Security:**
+- Non-root user `appuser` runs the container
+- Minimal image layers for reduced attack surface
+
+**📁 Data Volumes:**
+
+```yaml
+volumes:
+  - .openspace:/app/.openspace    # Skill database and embedding cache
+  - logs:/app/logs                # Log persistence
+```
+
+**🔌 Ports & Services:**
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `openspace` (Dashboard) | 7788 | Web UI and API |
+| `openspace-cli` | - | CLI tool |
+
+#### Environment Variables
+
+See `.env.example` for all options. Key settings:
+
+```bash
+# Required
+OPENAI_API_KEY=sk-xxx
+OPENSPACE_MODEL=gpt-4o
+
+# Docker tuning
+HOST_PORT=7788                    # Frontend port
+OPENSPACE_WORKSPACE=/app          # Workspace inside container
+OPENSPACE_LOG_LEVEL=INFO          # Log level
+
+# Optional (cloud features)
+OPENSPACE_API_KEY=sk-xxx
+```
+
+#### Troubleshooting
+
+```bash
+# View logs
+docker-compose logs openspace
+
+# Check port conflicts
+docker-compose port openspace 7788
+
+# Enter container
+docker-compose exec openspace bash
+
+# Monitor resources
+docker stats openspace
+```
+
+- **Port conflicts:** Select unused port via `HOST_PORT` in `.env`. Run `docker ps` to see used ports.
+- **Backup/restore, custom networks, monitoring:** See **[DOCKER.md](./DOCKER.md)** for complete guide.
+- **Full configuration:** See **[openspace/config/README.md](./openspace/config/README.md)**
+- **Custom skills:** See **[openspace/skills/README.md](./openspace/skills/README.md)**
+# Start the container
+docker-compose up -d --build
+```
+
+The OpenSpace Dashboard is now available at [http://localhost:7788](http://localhost:7788).
+
+For detailed CLI and volume configurations, check out the [Docker Deployment Guide (DOCKER.md)](./DOCKER.md).
 
 ## 📈 Benchmark: GDPVal
 
