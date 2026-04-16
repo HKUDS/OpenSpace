@@ -17,6 +17,7 @@ Desktop.ini
 .vscode/
 .idea/
 .pytest_cache/
+.venv/
 
 # Distribution / packaging
 dist/

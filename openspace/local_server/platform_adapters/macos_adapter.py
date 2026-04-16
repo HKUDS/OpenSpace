@@ -5,10 +5,15 @@ from openspace.utils.logging import Logger
 
 try:
     import AppKit
-    import atomacos
     MACOS_LIBS_AVAILABLE = True
 except ImportError:
     MACOS_LIBS_AVAILABLE = False
+
+try:
+    import atomacos
+    ATOMACOS_AVAILABLE = True
+except ImportError:
+    ATOMACOS_AVAILABLE = False
 
 logger = Logger.get_logger(__name__)
 
@@ -20,8 +25,10 @@ class MacOSAdapter:
         global _warning_shown
         if not MACOS_LIBS_AVAILABLE and not _warning_shown:
             logger.warning("macOS libraries are not fully installed, some features may not be available")
-            logger.info("To install missing libraries, run: pip install pyobjc-framework-Cocoa atomacos")
+            logger.info("To install missing libraries, run: pip install pyobjc-core pyobjc-framework-Cocoa pyobjc-framework-quartz")
             _warning_shown = True
+        if not ATOMACOS_AVAILABLE:
+            logger.debug("atomacos not installed; accessibility-tree features unavailable (conflicts with pyautogui>=0.9.54)")
         self.available = MACOS_LIBS_AVAILABLE
     
     def capture_screenshot_with_cursor(self, output_path: str) -> bool:
@@ -163,6 +170,8 @@ class MacOSAdapter:
         """
         if not MACOS_LIBS_AVAILABLE:
             return {'error': 'macOS accessibility libraries not available'}
+        if not ATOMACOS_AVAILABLE:
+            return {'error': 'atomacos is not installed; accessibility-tree features require it'}
         
         try:
             # Get frontmost application
@@ -177,7 +186,6 @@ class MacOSAdapter:
             
             logger.info(f"Getting accessibility tree: {app_name} ({bundle_id})")
             
-            # Use atomacos to get application reference
             try:
                 if bundle_id:
                     app_ref = atomacos.getAppRefByBundleId(bundle_id)

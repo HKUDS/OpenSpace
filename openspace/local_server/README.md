@@ -37,8 +37,10 @@ Set `"mode": "server"` in `openspace/config/config_grounding.json`:
 <summary><b>macOS</b></summary>
 
 ```bash
-pip install pyobjc-core pyobjc-framework-cocoa pyobjc-framework-quartz atomacos
+pip install pyobjc-core pyobjc-framework-cocoa pyobjc-framework-quartz
 ```
+
+> **Note:** `atomacos` is excluded because it requires `pyautogui<0.9.42` (appears unmaintained). Accessibility-tree features are currently unavailable.
 
 **Permissions required** (macOS will prompt automatically on first run):
 - **Accessibility** (for GUI control)
