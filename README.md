@@ -162,6 +162,7 @@ On 50 professional tasks (**📈 [GDPVal Economic Benchmark](#-benchmark-gdpval)
 git clone https://github.com/HKUDS/OpenSpace.git && cd OpenSpace
 pip install -e .
 openspace-mcp --help   # verify installation
+openspace-dashboard --help   # verify dashboard entry point
 ```
 
 > [!TIP]
@@ -172,6 +173,18 @@ openspace-mcp --help   # verify installation
 > git sparse-checkout set '/*' '!assets/'
 > pip install -e .
 > ```
+
+If your shell cannot find `openspace-dashboard`, use the module form from the same environment:
+
+```bash
+python -m openspace.dashboard_server --help
+```
+
+### Windows / PATH Troubleshooting
+
+- Activate the same virtual environment you used for `pip install -e .` before running the commands above.
+- If `openspace-dashboard` is still not on `PATH`, use `python -m openspace.dashboard_server --host 127.0.0.1 --port 7788`.
+- If the backend is running on a different machine or port, update the frontend proxy settings to match. Only change `OPENSPACE_WORKSPACE` when the OpenSpace workspace path itself changes.
 
 **Choose your path:**
 - **[Path A](#-path-a-for-your-agent)** — Plug OpenSpace into your agent
@@ -281,6 +294,9 @@ See how your skills evolve — browse skills, track lineage, compare diffs.
 ```bash
 # Terminal 1. Start backend API
 openspace-dashboard --port 7788
+
+# Fallback if the console script is unavailable
+python -m openspace.dashboard_server --port 7788
 
 # Terminal 2: Start frontend dev server
 cd frontend

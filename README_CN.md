@@ -162,6 +162,7 @@ Skill 能够自动学习并持续提升
 git clone https://github.com/HKUDS/OpenSpace.git && cd OpenSpace
 pip install -e .
 openspace-mcp --help   # 验证安装
+openspace-dashboard --help   # 验证 dashboard 入口
 ```
 
 > [!TIP]
@@ -172,6 +173,18 @@ openspace-mcp --help   # 验证安装
 > git sparse-checkout set '/*' '!assets/'
 > pip install -e .
 > ```
+
+如果你的命令行找不到 `openspace-dashboard`，请在同一个环境里改用模块方式：
+
+```bash
+python -m openspace.dashboard_server --help
+```
+
+### Windows / PATH 排查
+
+- 先激活执行 `pip install -e .` 时使用的同一个虚拟环境。
+- 如果 `openspace-dashboard` 仍然找不到，直接用 `python -m openspace.dashboard_server --host 127.0.0.1 --port 7788`。
+- 如果后端运行在其他主机或端口，请同步更新前端代理配置。只有 OpenSpace 工作区路径本身变化时，才需要修改 `OPENSPACE_WORKSPACE`。
 
 **选择你的路径：**
 - **[路径 A](#-路径-a为你的-agent-接入)** — 将 OpenSpace 接入你的 Agent
@@ -281,6 +294,9 @@ asyncio.run(main())
 ```bash
 # 终端 1：启动后端 API
 openspace-dashboard --port 7788
+
+# 如果控制台命令不可用
+python -m openspace.dashboard_server --port 7788
 
 # 终端 2：启动前端开发服务器
 cd frontend
