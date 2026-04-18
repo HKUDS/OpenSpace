@@ -18,6 +18,7 @@ Reused by:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -146,6 +147,18 @@ class SkillRanker:
         """Embedding-only ranking."""
         return self._embedding_rank(query, candidates, top_k)
 
+    @staticmethod
+    def _content_key(skill_id: str, embedding_text: str) -> str:
+        """Compose a content-addressed cache key.
+
+        The cache stores embeddings under ``"{skill_id}:{sha256(text)[:16]}"``
+        so that any change to the text used for embedding (name, description,
+        or body) automatically invalidates the cached entry without relying
+        on an external trigger.
+        """
+        digest = hashlib.sha256(embedding_text.encode("utf-8")).hexdigest()[:16]
+        return f"{skill_id}:{digest}"
+
     def get_or_compute_embedding(
         self, candidate: SkillCandidate,
     ) -> Optional[List[float]]:
@@ -157,25 +170,55 @@ class SkillRanker:
         if candidate.embedding:
             return candidate.embedding
 
-        # Check cache
-        cached = self._embedding_cache.get(candidate.skill_id)
+        text = self._build_embedding_text(candidate)
+        content_key = self._content_key(candidate.skill_id, text)
+
+        # Check content-addressed cache
+        cached = self._embedding_cache.get(content_key)
         if cached:
             candidate.embedding = cached
             return cached
 
+        # Backward-compat: old-format entries were keyed by skill_id alone.
+        # If present, migrate to the new key format without hitting the API.
+        legacy = self._embedding_cache.get(candidate.skill_id)
+        if legacy:
+            candidate.embedding = legacy
+            self._embedding_cache[content_key] = legacy
+            self._embedding_cache.pop(candidate.skill_id, None)
+            self._save_cache()
+            return legacy
+
         # Compute
-        text = self._build_embedding_text(candidate)
         emb = self._generate_embedding(text)
         if emb:
             candidate.embedding = emb
-            self._embedding_cache[candidate.skill_id] = emb
+            self._embedding_cache[content_key] = emb
+            # Bound cache growth: previous versions of this skill are now
+            # obsolete, drop them in the same write.
+            for stale in [
+                k for k in self._embedding_cache
+                if k != content_key and k.startswith(f"{candidate.skill_id}:")
+            ]:
+                self._embedding_cache.pop(stale, None)
             self._save_cache()
         return emb
 
     def invalidate_cache(self, skill_id: str) -> None:
-        """Remove a skill's cached embedding (e.g. after evolution)."""
-        self._embedding_cache.pop(skill_id, None)
-        self._save_cache()
+        """Remove all cached embeddings for a skill (e.g. after evolution).
+
+        Removes every cache entry whose key matches either the exact
+        ``skill_id`` (legacy format) or the ``"{skill_id}:*"`` content-addressed
+        prefix, covering any historical content version that might linger.
+        """
+        keys_to_drop = [
+            k for k in self._embedding_cache
+            if k == skill_id or k.startswith(f"{skill_id}:")
+        ]
+        for k in keys_to_drop:
+            self._embedding_cache.pop(k, None)
+        if keys_to_drop:
+            self._save_cache()
 
     def clear_cache(self) -> None:
         """Clear all cached embeddings."""
@@ -273,21 +316,41 @@ class SkillRanker:
         if not query_emb:
             return []
 
-        # Ensure all candidates have embeddings
+        # Ensure all candidates have embeddings (content-addressed cache
+        # with backward-compat fallback for legacy skill_id-only keys).
+        cache_dirty = False
         for c in candidates:
-            if not c.embedding:
-                cached = self._embedding_cache.get(c.skill_id)
-                if cached:
-                    c.embedding = cached
-                else:
-                    text = self._build_embedding_text(c)
-                    emb = self._generate_embedding(text, api_key=api_key)
-                    if emb:
-                        c.embedding = emb
-                        self._embedding_cache[c.skill_id] = emb
+            if c.embedding:
+                continue
+            text = self._build_embedding_text(c)
+            content_key = self._content_key(c.skill_id, text)
+            cached = self._embedding_cache.get(content_key)
+            if cached:
+                c.embedding = cached
+                continue
+            legacy = self._embedding_cache.get(c.skill_id)
+            if legacy:
+                c.embedding = legacy
+                self._embedding_cache[content_key] = legacy
+                self._embedding_cache.pop(c.skill_id, None)
+                cache_dirty = True
+                continue
+            emb = self._generate_embedding(text, api_key=api_key)
+            if emb:
+                c.embedding = emb
+                self._embedding_cache[content_key] = emb
+                # Bound cache growth: previous versions of this skill are
+                # obsolete, drop them.
+                for stale in [
+                    k for k in self._embedding_cache
+                    if k != content_key and k.startswith(f"{c.skill_id}:")
+                ]:
+                    self._embedding_cache.pop(stale, None)
+                cache_dirty = True
 
-        # Save newly computed embeddings
-        self._save_cache()
+        # Save newly computed / migrated embeddings
+        if cache_dirty:
+            self._save_cache()
 
         # Score
         for c in candidates:
