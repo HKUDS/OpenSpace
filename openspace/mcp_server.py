@@ -1,10 +1,11 @@
 """OpenSpace MCP Server
 
 Exposes the following tools to MCP clients:
-  execute_task   — Delegate a task (auto-registers skills, auto-searches, auto-evolves)
-  search_skills  — Standalone search across local & cloud skills
-  fix_skill      — Manually fix a broken skill (FIX only; DERIVED/CAPTURED via execute_task)
-  upload_skill   — Upload a local skill to cloud (pre-saved metadata, bot decides visibility)
+  execute_task                  — Delegate a task (auto-registers skills, auto-searches, auto-evolves)
+  search_skills                 — Standalone search across local & cloud skills
+  fix_skill                     — Manually fix a broken skill (FIX only; DERIVED/CAPTURED via execute_task)
+  upload_skill                  — Upload a local skill to cloud (pre-saved metadata, bot decides visibility)
+  scan_evolution_opportunities  — Scan skill health and return actionable evolution suggestions
 
 Usage:
     python -m openspace.mcp_server                     # auto (TTY -> SSE, MCP host -> stdio)
@@ -526,7 +527,7 @@ def _json_error(error: Any, **extra) -> str:
     return json.dumps({"error": str(error), **extra}, ensure_ascii=False)
 
 
-# MCP Tools (4 tools)
+# MCP Tools (5 tools)
 @mcp.tool()
 async def execute_task(
     task: str,
@@ -911,6 +912,139 @@ async def upload_skill(
     except Exception as e:
         logger.error(f"upload_skill failed: {e}", exc_info=True)
         return _json_error(e, status="error")
+
+@mcp.tool()
+async def scan_evolution_opportunities(
+    skill_dirs: list[str] | None = None,
+    max_candidates: int = 10,
+) -> str:
+    """Scan skill execution history and return evolution opportunities.
+
+    Analyzes recent execution data to identify skills that may benefit
+    from evolution (FIX, DERIVED, or CAPTURED).  Returns a structured
+    report with usage statistics and specific suggestions so the caller
+    can decide whether to act.
+
+    This is the "agent-in-the-loop" complement to the automatic evolution
+    inside ``execute_task``.  Typical workflow:
+
+      1. Call ``scan_evolution_opportunities`` (e.g. on a cron schedule)
+      2. Review the report — each candidate includes statistics and
+         actionable suggestions with a ``type`` and ``direction``
+      3. Call ``fix_skill`` on selected candidates (or defer / ignore)
+
+    Args:
+        skill_dirs: Optional extra skill directories to register before
+                    scanning.  Already-registered directories are safe
+                    to include (idempotent).
+        max_candidates: Maximum number of evolution candidates to return
+                        (ordered by most recent first).  Default 10.
+    """
+    try:
+        # Ensure engine is initialised and skill dirs are registered
+        openspace = await _get_openspace()
+
+        host_skill_dirs_raw = os.environ.get("OPENSPACE_HOST_SKILL_DIRS", "")
+        if host_skill_dirs_raw:
+            dirs = [d.strip() for d in host_skill_dirs_raw.split(",") if d.strip()]
+            if dirs:
+                await _auto_register_skill_dirs(dirs)
+
+        if skill_dirs:
+            await _auto_register_skill_dirs(skill_dirs)
+
+        store = _get_store()
+        if store is None:
+            return _json_error("SkillStore not available")
+
+        # Load evolution candidates (analyses with suggestions)
+        analyses = store.load_evolution_candidates(limit=max_candidates)
+
+        # Collect unique skill_ids referenced in suggestions
+        skill_ids_seen: set[str] = set()
+        for analysis in analyses:
+            for suggestion in analysis.evolution_suggestions:
+                skill_ids_seen.update(suggestion.target_skill_ids)
+            for judgment in analysis.skill_judgments:
+                skill_ids_seen.add(judgment.skill_id)
+
+        # Batch-load skill records for enrichment
+        skill_records: Dict[str, Any] = {}
+        for sid in skill_ids_seen:
+            if not sid:
+                continue
+            record = store.load_record(sid)
+            if record:
+                skill_records[sid] = record
+
+        # Build per-candidate report entries
+        candidates = []
+        suggestion_type_counts: Dict[str, int] = {}
+
+        for analysis in analyses:
+            suggestions_out = []
+            for s in analysis.evolution_suggestions:
+                stype = s.evolution_type.value
+                suggestion_type_counts[stype] = suggestion_type_counts.get(stype, 0) + 1
+                suggestions_out.append({
+                    "type": stype,
+                    "target_skills": s.target_skill_ids,
+                    "direction": s.direction,
+                    "category": s.category.value if s.category else None,
+                })
+
+            # Build stats for the primary target skill (if any)
+            primary_id = (
+                analysis.evolution_suggestions[0].target_skill_id
+                if analysis.evolution_suggestions
+                else ""
+            )
+            record = skill_records.get(primary_id)
+            stats = None
+            if record:
+                stats = {
+                    "total_selections": record.total_selections,
+                    "total_applied": record.total_applied,
+                    "total_completions": record.total_completions,
+                    "total_fallbacks": record.total_fallbacks,
+                    "completion_rate": round(record.completion_rate, 3),
+                    "effective_rate": round(record.effective_rate, 3),
+                    "fallback_rate": round(record.fallback_rate, 3),
+                }
+
+            candidates.append({
+                "skill_id": primary_id or None,
+                "skill_name": record.name if record else None,
+                "description": record.description if record else None,
+                "stats": stats,
+                "suggestions": suggestions_out,
+                "source_task_id": analysis.task_id,
+                "task_completed": analysis.task_completed,
+                "execution_note": analysis.execution_note,
+                "analyzed_at": analysis.analyzed_at.isoformat(),
+            })
+
+        # Summary
+        active_count = store.count(active_only=True)
+        parts = [f"{v} {k.upper()}" for k, v in sorted(suggestion_type_counts.items())]
+        summary = (
+            f"Found {len(candidates)} evolution candidate(s) "
+            f"across {active_count} active skill(s)"
+        )
+        if parts:
+            summary += f": {', '.join(parts)}"
+
+        return _json_ok({
+            "candidates": candidates,
+            "total_candidates": len(candidates),
+            "total_active_skills": active_count,
+            "scan_summary": summary,
+        })
+
+    except Exception as e:
+        logger.error(f"scan_evolution_opportunities failed: {e}", exc_info=True)
+        return _json_error(e, status="error")
+
 
 def run_mcp_server() -> None:
     """Console-script entry point for ``openspace-mcp``."""
