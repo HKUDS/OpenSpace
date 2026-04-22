@@ -124,6 +124,9 @@ This makes it possible to tell the difference between:
 
 ## Reinstalling the Global Wrappers
 
+For a full fresh-machine setup, start with
+[`docs/codex-mcp-deployment.md`](codex-mcp-deployment.md).
+
 Use:
 
 ```bash
@@ -178,6 +181,7 @@ Scope:
 
 ## Related Docs
 
+- `docs/codex-mcp-deployment.md`
 - `docs/current-routing-flow.md`
 - `docs/release-note-local-customization.md`
 - `docs/codex-desktop-sidecar-evolution.md`

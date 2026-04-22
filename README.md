@@ -158,6 +158,11 @@ openspace-mcp --help   # verify installation
 ```
 
 > [!TIP]
+> **Codex MCP deployment:** If you want this repository to provide global
+> `openspace` and `openspace_evolution` MCP servers for a fresh Codex setup,
+> follow [`docs/codex-mcp-deployment.md`](docs/codex-mcp-deployment.md).
+
+> [!TIP]
 > **Recommended split routing for OpenAI-compatible gateways**
 >
 > If your main model runs through an OpenAI-compatible provider or local relay (for example `gpt-5.4` via `http://127.0.0.1:8080/v1`), the recommended default is:
