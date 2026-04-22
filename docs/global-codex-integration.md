@@ -64,6 +64,10 @@ The intended machine-wide setup is:
    - to auto-run sidecar evolution for non-trivial repo work
    - to treat missing `git init` as a repo bootstrap issue
 
+The reusable template for these instructions is:
+
+- `docs/templates/codex-openspace-agents-template.md`
+
 ## Daemon / Proxy V1
 
 The global and local launchers keep the same wrapper names and the same MCP config shape, but they now sit in front of a shared-daemon topology:
@@ -182,6 +186,7 @@ Scope:
 ## Related Docs
 
 - `docs/codex-mcp-deployment.md`
+- `docs/templates/codex-openspace-agents-template.md`
 - `docs/current-routing-flow.md`
 - `docs/release-note-local-customization.md`
 - `docs/codex-desktop-sidecar-evolution.md`

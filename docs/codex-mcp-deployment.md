@@ -142,53 +142,26 @@ The MCP entries above only make the tools available. Codex decides when to call
 them from instructions, so automatic sidecar use also needs an `AGENTS.md`
 policy.
 
-For machine-wide behavior, add this to `~/.codex/AGENTS.md`. For one project
-only, add it to that project's `AGENTS.md`.
+A reusable template is versioned at:
 
-```markdown
-## OpenSpace Sidecar Evolution
-
-When the user asks for sidecar self-evolution, call:
-- `openspace_evolution.evolve_from_context`
-
-Trigger phrases:
-- `sidecar 自进化一下`
-- `做一次 sidecar 自进化`
-- `对当前这轮工作做一次 sidecar 自进化`
-- `用 sidecar 沉淀一个 skill`
-- `基于当前改动做一次 sidecar skill capture`
-- `不要改代码，做一次 sidecar 自进化`
-
-If the user uses one of these phrases, default to this workflow automatically
-unless they explicitly ask for a different behavior.
-
-Derive the tool inputs from:
-- the current conversation
-- the current `git diff`
-- the key changed files
-
-Pass `workspace_dir` explicitly as the current repository root, use
-`max_skills = 1` by default, and do not modify code during the evolution pass.
+```text
+docs/templates/codex-openspace-agents-template.md
 ```
 
-If you want Codex to run sidecar evolution automatically at the end of
-substantial repo work, add this stricter opt-in rule as well:
+For machine-wide behavior, append it to `~/.codex/AGENTS.md`:
 
-```markdown
-## OpenSpace Auto Evolution
-
-If `openspace_evolution` MCP is available, and the assistant is about to
-conclude a non-trivial repo-scoped task with implementation and verification
-evidence, run `openspace_evolution.evolve_from_context` before the final
-completion message.
-
-Use `workspace_dir` as the current repo root, pass the most relevant changed
-files in `file_paths`, and use `max_skills = 1` by default.
-
-Do not auto-run evolution for casual chat, simple factual Q&A, pure log
-reading, pure audit/review/explanation, or doc-only edits unless the user
-explicitly asks to capture a reusable documentation workflow.
+```bash
+mkdir -p ~/.codex
+if ! grep -q "Codex OpenSpace Auto Invocation Template" ~/.codex/AGENTS.md 2>/dev/null; then
+  {
+    printf '\n\n'
+    cat docs/templates/codex-openspace-agents-template.md
+  } >> ~/.codex/AGENTS.md
+fi
 ```
+
+For project-only behavior, append the same template to that project's
+`AGENTS.md` instead.
 
 After changing `~/.codex/AGENTS.md`, start a new Codex session so the new
 instructions are loaded.
