@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from pathlib import Path
 
 from openspace import mcp_proxy
@@ -17,6 +18,20 @@ def test_proxy_mode_defaults_follow_split_rollout(monkeypatch) -> None:
     monkeypatch.setenv("OPENSPACE_MCP_PROXY_MODE", "daemon")
     assert mcp_proxy._proxy_mode_for("main") == "daemon"
     assert mcp_proxy._proxy_mode_for("evolution") == "daemon"
+
+
+def test_proxy_idle_timeout_prefers_proxy_specific_env(monkeypatch) -> None:
+    monkeypatch.setenv("OPENSPACE_MCP_PROXY_IDLE_TIMEOUT_SECONDS", "7")
+    monkeypatch.setenv("OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS", "900")
+
+    assert mcp_proxy._proxy_idle_timeout_seconds() == 7
+
+
+def test_proxy_idle_timeout_defaults_to_180(monkeypatch) -> None:
+    monkeypatch.delenv("OPENSPACE_MCP_PROXY_IDLE_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS", raising=False)
+
+    assert mcp_proxy._proxy_idle_timeout_seconds() == 180
 
 
 def test_proxy_registration_is_lazy(monkeypatch) -> None:
@@ -179,3 +194,64 @@ def test_update_current_daemon_status_marks_warmed(monkeypatch, tmp_path) -> Non
     assert updated.ready is True
     assert updated.warmed is True
     assert updated.warmed_at is not None
+
+
+def test_ensure_daemon_rejects_root_workspace(monkeypatch) -> None:
+    identity = shared_mcp_runtime.MCPDaemonIdentity(
+        server_kind="evolution",
+        workspace="/",
+        resolved_model="model",
+        llm_kwargs_fingerprint="llm",
+        backend_scope=("shell",),
+        host_skill_dirs=(),
+        grounding_config_fingerprint="cfg",
+        instance_key="root-key",
+        state_dir="/tmp/openspace-state",
+    )
+    monkeypatch.setattr(shared_mcp_runtime, "compute_daemon_identity", lambda kind: identity)
+    monkeypatch.setattr(
+        shared_mcp_runtime,
+        "_spawn_daemon",
+        lambda identity, port: (_ for _ in ()).throw(AssertionError("spawn should not be reached")),
+    )
+
+    try:
+        asyncio.run(shared_mcp_runtime.ensure_daemon("evolution"))
+    except RuntimeError as exc:
+        assert "workspace" in str(exc)
+    else:
+        raise AssertionError("ensure_daemon should reject workspace=/")
+
+
+def test_proxy_idle_watchdog_exits_only_after_idle(monkeypatch) -> None:
+    shutdown_reasons: list[str] = []
+    sleep_calls = {"count": 0}
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(mcp_proxy.time, "monotonic", lambda: now["value"])
+    monkeypatch.setattr(
+        mcp_proxy.time,
+        "sleep",
+        lambda seconds: sleep_calls.__setitem__("count", sleep_calls["count"] + 1) or now.__setitem__("value", now["value"] + seconds),
+    )
+    monkeypatch.setattr(mcp_proxy, "_begin_proxy_shutdown", lambda reason: shutdown_reasons.append(reason))
+    mcp_proxy._proxy_activity_lock = threading.Lock()
+    mcp_proxy._proxy_active_request_count = 1
+    mcp_proxy._proxy_last_activity_at = 100.0
+
+    def _drop_activity():
+        if sleep_calls["count"] == 1:
+            mcp_proxy._proxy_active_request_count = 0
+            mcp_proxy._proxy_last_activity_at = now["value"]
+
+    original_sleep = mcp_proxy.time.sleep
+
+    def _sleep(seconds):
+        original_sleep(seconds)
+        _drop_activity()
+
+    monkeypatch.setattr(mcp_proxy.time, "sleep", _sleep)
+
+    mcp_proxy._proxy_idle_watchdog_loop(5)
+
+    assert shutdown_reasons == ["idle timeout after 5.0s"]

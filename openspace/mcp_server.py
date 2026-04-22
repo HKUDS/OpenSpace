@@ -1179,8 +1179,13 @@ def run_mcp_server() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    if args.transport == "stdio" or os.environ.get("OPENSPACE_MCP_DAEMON") == "1":
+    daemon_mode = os.environ.get("OPENSPACE_MCP_DAEMON") == "1"
+
+    if args.transport == "stdio" or daemon_mode:
         _install_signal_handlers()
+    # Direct stdio servers should live and die with the host transport.
+    # Only shared daemons should reap themselves after an idle timeout.
+    if daemon_mode:
         _maybe_start_idle_watchdog()
     if args.transport == "streamable-http":
         _maybe_start_main_daemon_embedding_prewarm()

@@ -7,6 +7,11 @@ ENV_FILE="$REPO_ROOT/openspace/.env"
 PRIMARY_CODEX_HOME="${PRIMARY_CODEX_HOME:-$HOME/.codex}"
 PROFILE_HOME="${CODEX_HOME:-$HOME/.codex-openspace}"
 
+if [[ "${1:-}" == "guard" ]]; then
+  shift
+  exec "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/scripts/codex_mcp_guard.py" "$@"
+fi
+
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Missing $ENV_FILE" >&2
   exit 1

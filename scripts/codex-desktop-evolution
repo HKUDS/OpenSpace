@@ -10,6 +10,11 @@ PROJECT_NAME="$(basename "$REPO_ROOT")"
 PROJECT_SKILL_DIR="$PROFILE_HOME/projects/$PROJECT_NAME/skills"
 REPO_PYTHON="$REPO_ROOT/.venv/bin/python"
 
+if [[ "${1:-}" == "guard" ]]; then
+  shift
+  exec "$REPO_PYTHON" "$REPO_ROOT/scripts/codex_mcp_guard.py" "$@"
+fi
+
 if [[ ! -f "$PRIMARY_CODEX_HOME/config.toml" ]]; then
   echo "Missing $PRIMARY_CODEX_HOME/config.toml" >&2
   exit 1

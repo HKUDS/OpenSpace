@@ -747,8 +747,13 @@ def run_mcp_server() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    if args.transport == "stdio" or os.environ.get("OPENSPACE_MCP_DAEMON") == "1":
+    daemon_mode = os.environ.get("OPENSPACE_MCP_DAEMON") == "1"
+
+    if args.transport == "stdio" or daemon_mode:
         _install_signal_handlers()
+    # Direct stdio servers should follow the host transport lifetime.
+    # Only background daemons should self-reap after idle timeouts.
+    if daemon_mode:
         _maybe_start_idle_watchdog()
 
     mcp.settings.port = args.port

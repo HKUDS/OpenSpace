@@ -242,6 +242,15 @@ def compute_daemon_identity(server_kind: ServerKind) -> MCPDaemonIdentity:
     )
 
 
+def _validate_daemon_identity(identity: MCPDaemonIdentity) -> None:
+    workspace = identity.workspace.strip()
+    if workspace == "/":
+        raise RuntimeError(
+            "Refusing to create a shared OpenSpace daemon for workspace=/. "
+            "Provide OPENSPACE_WORKSPACE explicitly or use direct proxy mode."
+        )
+
+
 def _read_record(path: Path) -> MCPDaemonRecord | None:
     if not path.is_file():
         return None
@@ -551,6 +560,7 @@ async def _wait_until_ready(record: MCPDaemonRecord, timeout_seconds: float = 15
 
 async def ensure_daemon(server_kind: ServerKind) -> MCPDaemonRecord:
     identity = compute_daemon_identity(server_kind)
+    _validate_daemon_identity(identity)
     identity.metadata_path.parent.mkdir(parents=True, exist_ok=True)
 
     with _FileLock(identity.lock_path):

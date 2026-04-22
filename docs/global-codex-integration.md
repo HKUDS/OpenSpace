@@ -52,6 +52,7 @@ The intended machine-wide setup is:
    - detect the current project directory
    - normalize it to the git repo root when possible
    - set `OPENSPACE_WORKSPACE`
+   - when Codex Desktop only provides `PWD=/` and no explicit workspace, fall back to `OPENSPACE_MCP_PROXY_MODE=direct` instead of creating shared daemons scoped to `/`
    - route project skills to `~/.codex/projects/<repo>/skills`
    - include common global skills from `~/.codex/skills`
    - call the shared `stdio` proxy entrypoint
@@ -81,6 +82,20 @@ The proxy surface supports two internal overrides:
 
 - `OPENSPACE_MCP_PROXY_MODE=direct` restores the old direct stdio behavior for debugging or rollback.
 - `OPENSPACE_MCP_DAEMON_STATE_DIR=/custom/path` moves daemon state to a different local directory.
+- `OPENSPACE_MCP_PROXY_IDLE_TIMEOUT_SECONDS=<seconds>` lets stdio proxy processes reap themselves sooner than the daemon timeout; it falls back to `OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS`, then defaults to `180`.
+
+### Invalid Workspace Fallback
+
+If Codex Desktop launches the global wrappers without an explicit `OPENSPACE_WORKSPACE` and only exposes `PWD=/`, the generated wrappers now:
+
+- do not export `OPENSPACE_WORKSPACE=/`
+- force `OPENSPACE_MCP_PROXY_MODE=direct`
+- route skills through the safe default bucket only:
+  - `~/.codex/projects/default/skills`
+  - `~/.codex/skills`
+- print a warning that shared daemons were disabled and workspace-aware tools must rely on explicit `workspace_dir`
+
+This is an intentional containment path to prevent shared daemon records keyed to `workspace=/`.
 
 The repo-local `scripts/codex-openspace` helper writes the same daemon defaults into the generated profile so local and global setups stay aligned.
 
@@ -121,6 +136,8 @@ This script recreates:
 - `~/.codex/bin/openspace-global-mcp`
 - `~/.codex/bin/openspace-evolution-global-mcp`
 
+Rerun it after changing wrapper behavior such as workspace fallback or proxy idle timeout handling.
+
 It does **not** overwrite your `~/.codex/config.toml` or `~/.codex/AGENTS.md`.
 
 ## Practical Outcome
@@ -131,6 +148,33 @@ With the global integration in place:
 - OpenSpace MCP is available globally
 - OpenSpace evolution MCP is available globally
 - repo-scoped skill routing and sidecar evolution use the current project automatically
+
+## MCP Guard
+
+The repo launchers now expose a Codex MCP residue guard for operational diagnosis and bounded cleanup of stale child processes under the current Codex Desktop `app-server`.
+
+Commands:
+
+```bash
+./scripts/codex-desktop-evolution guard status
+./scripts/codex-desktop-evolution guard check
+./scripts/codex-desktop-evolution guard clean --dry-run
+./scripts/codex-desktop-evolution guard tail
+./scripts/codex-desktop-evolution guard daemon
+```
+
+The same subcommands are also available through:
+
+```bash
+./scripts/codex-openspace guard <subcommand>
+```
+
+Scope:
+
+- diagnoses `openspace.mcp_proxy` residue
+- diagnoses `SkyComputerUseClient mcp` residue
+- only targets allowlisted stale children during cleanup
+- never targets the main `codex app-server`
 
 ## Related Docs
 

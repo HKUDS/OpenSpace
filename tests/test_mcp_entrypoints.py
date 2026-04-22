@@ -14,10 +14,11 @@ ENTRYPOINT_MODULES = [
 
 
 @pytest.mark.parametrize("module_name", ENTRYPOINT_MODULES)
-def test_stdio_entrypoint_uses_stdio_transport(module_name, monkeypatch) -> None:
+def test_stdio_entrypoint_skips_idle_watchdog_outside_daemon(module_name, monkeypatch) -> None:
     module = importlib.import_module(module_name)
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
     watchdog_calls: list[bool] = []
+    signal_handler_calls: list[bool] = []
 
     monkeypatch.setattr(
         argparse.ArgumentParser,
@@ -37,12 +38,14 @@ def test_stdio_entrypoint_uses_stdio_transport(module_name, monkeypatch) -> None
     monkeypatch.setattr(
         module,
         "_install_signal_handlers",
-        lambda: None,
+        lambda: signal_handler_calls.append(True),
     )
+    monkeypatch.delenv("OPENSPACE_MCP_DAEMON", raising=False)
 
     module.run_mcp_server()
 
-    assert watchdog_calls == [True]
+    assert signal_handler_calls == [True]
+    assert watchdog_calls == []
     assert calls == [((), {"transport": "stdio"})]
     assert module.mcp.settings.port == 9123
 

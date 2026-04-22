@@ -28,8 +28,24 @@ if [[ ! -x "\$REPO_PYTHON" ]]; then
 fi
 
 workspace="\${OPENSPACE_WORKSPACE:-\$PWD}"
+workspace_explicit=0
+if [[ -n "\${OPENSPACE_WORKSPACE:-}" ]]; then
+  workspace_explicit=1
+fi
 if git_root="\$(git -C "\$workspace" rev-parse --show-toplevel 2>/dev/null)"; then
   workspace="\$git_root"
+fi
+
+if [[ "\$workspace_explicit" == "0" && ( -z "\$workspace" || "\$workspace" == "/" || "\$workspace" == "." ) ]]; then
+  project_skill_dir="\${HOME}/.codex/projects/default/skills"
+  mkdir -p "\$project_skill_dir" "\${HOME}/.codex/skills"
+  unset OPENSPACE_WORKSPACE
+  export OPENSPACE_HOST_SKILL_DIRS="\${HOME}/.codex/projects/default/skills,\${HOME}/.codex/skills"
+  export OPENSPACE_MCP_PROXY_MODE="direct"
+  export OPENSPACE_MCP_DAEMON_STATE_DIR="\${OPENSPACE_MCP_DAEMON_STATE_DIR:-\${CODEX_HOME}/state/openspace}"
+  mkdir -p "\$OPENSPACE_MCP_DAEMON_STATE_DIR"
+  echo "Warning: Codex Desktop did not provide a usable workspace. Shared OpenSpace daemons were disabled for safety; workspace-aware tools must rely on explicit workspace_dir." >&2
+  exec "\$REPO_PYTHON" -m openspace.mcp_proxy --kind main --transport stdio
 fi
 
 project_name="\$(basename "\$workspace")"
@@ -63,8 +79,24 @@ if [[ ! -x "\$REPO_PYTHON" ]]; then
 fi
 
 workspace="\${OPENSPACE_WORKSPACE:-\$PWD}"
+workspace_explicit=0
+if [[ -n "\${OPENSPACE_WORKSPACE:-}" ]]; then
+  workspace_explicit=1
+fi
 if git_root="\$(git -C "\$workspace" rev-parse --show-toplevel 2>/dev/null)"; then
   workspace="\$git_root"
+fi
+
+if [[ "\$workspace_explicit" == "0" && ( -z "\$workspace" || "\$workspace" == "/" || "\$workspace" == "." ) ]]; then
+  project_skill_dir="\${HOME}/.codex/projects/default/skills"
+  mkdir -p "\$project_skill_dir" "\${HOME}/.codex/skills"
+  unset OPENSPACE_WORKSPACE
+  export OPENSPACE_HOST_SKILL_DIRS="\${HOME}/.codex/projects/default/skills,\${HOME}/.codex/skills"
+  export OPENSPACE_MCP_PROXY_MODE="direct"
+  export OPENSPACE_MCP_DAEMON_STATE_DIR="\${OPENSPACE_MCP_DAEMON_STATE_DIR:-\${CODEX_HOME}/state/openspace}"
+  mkdir -p "\$OPENSPACE_MCP_DAEMON_STATE_DIR"
+  echo "Warning: Codex Desktop did not provide a usable workspace. Shared OpenSpace daemons were disabled for safety; workspace-aware tools must rely on explicit workspace_dir." >&2
+  exec "\$REPO_PYTHON" -m openspace.mcp_proxy --kind evolution --transport stdio
 fi
 
 export OPENSPACE_WORKSPACE="\$workspace"

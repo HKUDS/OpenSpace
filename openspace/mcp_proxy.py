@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import argparse
+import contextlib
 import inspect
 import json
 import os
+import signal
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -23,12 +27,79 @@ from openspace.shared_mcp_runtime import ServerKind, ensure_daemon
 _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 maybe_redirect_stderr_to_file(_LOG_DIR, "mcp_proxy_stderr.log")
 
+_proxy_activity_lock = threading.Lock()
+_proxy_active_request_count = 0
+_proxy_last_activity_at = time.monotonic()
+_proxy_idle_watchdog_started = False
+
 
 def _proxy_mode_for(server_kind: ServerKind) -> str:
     raw = os.environ.get("OPENSPACE_MCP_PROXY_MODE", "").strip().lower()
     if raw in {"daemon", "direct"}:
         return raw
     return "daemon"
+
+
+def _proxy_idle_timeout_seconds() -> int:
+    timeout_raw = os.environ.get("OPENSPACE_MCP_PROXY_IDLE_TIMEOUT_SECONDS", "").strip()
+    if not timeout_raw:
+        timeout_raw = os.environ.get("OPENSPACE_MCP_IDLE_TIMEOUT_SECONDS", "").strip()
+    if timeout_raw:
+        try:
+            return int(timeout_raw)
+        except ValueError:
+            return 0
+    return 180
+
+
+def _mark_proxy_request_start() -> None:
+    global _proxy_active_request_count, _proxy_last_activity_at
+    with _proxy_activity_lock:
+        _proxy_active_request_count += 1
+        _proxy_last_activity_at = time.monotonic()
+
+
+def _mark_proxy_request_end() -> None:
+    global _proxy_active_request_count, _proxy_last_activity_at
+    with _proxy_activity_lock:
+        _proxy_active_request_count = max(0, _proxy_active_request_count - 1)
+        _proxy_last_activity_at = time.monotonic()
+
+
+def _begin_proxy_shutdown(reason: str) -> None:
+    with contextlib.suppress(Exception):
+        os.kill(os.getpid(), signal.SIGTERM)
+
+
+def _proxy_idle_watchdog_loop(idle_timeout_seconds: int) -> None:
+    check_interval = max(1, min(max(idle_timeout_seconds // 3, 1), 60))
+    while True:
+        time.sleep(check_interval)
+        with _proxy_activity_lock:
+            active = _proxy_active_request_count
+            idle_for = time.monotonic() - _proxy_last_activity_at
+        if active == 0 and idle_for >= idle_timeout_seconds:
+            _begin_proxy_shutdown(f"idle timeout after {idle_for:.1f}s")
+            return
+
+
+def _maybe_start_proxy_idle_watchdog() -> None:
+    global _proxy_idle_watchdog_started
+    if _proxy_idle_watchdog_started:
+        return
+
+    idle_timeout_seconds = _proxy_idle_timeout_seconds()
+    if idle_timeout_seconds <= 0:
+        return
+
+    watchdog = threading.Thread(
+        target=_proxy_idle_watchdog_loop,
+        args=(idle_timeout_seconds,),
+        name="openspace-mcp-proxy-idle-watchdog",
+        daemon=True,
+    )
+    watchdog.start()
+    _proxy_idle_watchdog_started = True
 
 
 def _json_error(error: Any, **extra: Any) -> str:
@@ -74,17 +145,21 @@ class _RemoteProxyBase:
         return asyncio.run(self._call_remote_tool_once(tool_name, args))
 
     async def _call_remote_tool(self, tool_name: str, args: dict[str, Any]) -> str:
-        for attempt in range(2):
-            try:
-                return await asyncio.to_thread(
-                    self._call_remote_tool_blocking,
-                    tool_name,
-                    args,
-                )
-            except Exception as exc:
-                if attempt == 1:
-                    return _json_error(exc, status="error")
-        return _json_error("Unreachable proxy retry path", status="error")
+        _mark_proxy_request_start()
+        try:
+            for attempt in range(2):
+                try:
+                    return await asyncio.to_thread(
+                        self._call_remote_tool_blocking,
+                        tool_name,
+                        args,
+                    )
+                except Exception as exc:
+                    if attempt == 1:
+                        return _json_error(exc, status="error")
+            return _json_error("Unreachable proxy retry path", status="error")
+        finally:
+            _mark_proxy_request_end()
 
 
 class _MainProxyImplementation(_RemoteProxyBase):
@@ -225,6 +300,7 @@ def _run_proxy(server_kind: ServerKind) -> None:
         register_main_tools(mcp, _MainProxyImplementation())
     else:
         register_evolution_tools(mcp, _EvolutionProxyImplementation())
+    _maybe_start_proxy_idle_watchdog()
     mcp.run(transport="stdio")
 
 
