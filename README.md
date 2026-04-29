@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/hkuds-openspace-badge.png)](https://mseep.ai/app/hkuds-openspace)
+
 <div align="center">
 
 <picture>
