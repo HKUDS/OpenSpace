@@ -58,6 +58,18 @@ _YAML_NEEDS_QUOTE_RE = re.compile(r"[:\#\[\]{}&*!|>'\"%@`]")
 
 def _yaml_quote(value: str) -> str:
     """Quote a YAML scalar value if it contains special characters."""
+    if "\n" in value:
+        trailing_newlines = len(value) - len(value.rstrip("\n"))
+        if trailing_newlines == 0:
+            chomping = "|-"
+        elif trailing_newlines == 1:
+            chomping = "|"
+        else:
+            chomping = "|+"
+        lines = value.split("\n")
+        if trailing_newlines and lines and lines[-1] == "":
+            lines = lines[:-1]
+        return chomping + "\n" + "\n".join(f"  {line}" for line in lines)
     if not value or not _YAML_NEEDS_QUOTE_RE.search(value):
         return value
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
@@ -72,15 +84,108 @@ def _yaml_unquote(value: str) -> str:
             inner = value[1:-1]
             if value[0] == '"':
                 inner = inner.replace('\\"', '"').replace("\\\\", "\\")
+            else:
+                inner = inner.replace("''", "'")
             return inner
     return value
+
+
+_BLOCK_SCALAR_HEADER_RE = re.compile(r"^([>|])([+-]?)([1-9]?)$")
+
+
+def _parse_yaml_lines(lines: list[str]) -> dict[str, Any]:
+    """Parse a flat YAML mapping.
+
+    Supports inline scalars (quoted or bare) and block scalars
+    (>, |, >-, |-, >+, |+, with optional indent indicator).
+    """
+    fm: dict[str, Any] = {}
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if ":" not in line:
+            i += 1
+            continue
+
+        key, value = line.split(":", 1)
+        key = key.strip()
+        if not key:
+            i += 1
+            continue
+
+        parent_indent = len(line) - len(line.lstrip(" "))
+        value = value.strip()
+        block_header = _BLOCK_SCALAR_HEADER_RE.match(value)
+        if not block_header:
+            fm[key] = _yaml_unquote(value)
+            i += 1
+            continue
+
+        style, chomping, indent_indicator = block_header.groups()
+        explicit_indent = int(indent_indicator) if indent_indicator else None
+        block_indent: int | None = explicit_indent
+        block_lines: list[str] = []
+        i += 1
+
+        while i < len(lines):
+            continuation = lines[i]
+            if continuation.strip():
+                indent = len(continuation) - len(continuation.lstrip(" "))
+                if block_indent is None:
+                    if indent <= parent_indent:
+                        break
+                    block_indent = indent
+                if indent < block_indent:
+                    break
+                block_lines.append(continuation[block_indent:])
+            else:
+                block_lines.append("")
+            i += 1
+
+        parsed = _render_block_scalar(block_lines, style, chomping)
+        fm[key] = parsed
+
+    return fm
+
+
+def _render_block_scalar(lines: list[str], style: str, chomping: str) -> str:
+    """Render collected block scalar lines according to the supported subset."""
+    if style == "|":
+        value = "\n".join(lines)
+    else:
+        paragraphs: list[str] = []
+        current: list[str] = []
+        for line in lines:
+            if line == "":
+                if current:
+                    paragraphs.append(" ".join(current))
+                    current = []
+            else:
+                current.append(line)
+        if current:
+            paragraphs.append(" ".join(current))
+        value = "\n".join(paragraphs)
+
+    trailing_empty_count = 0
+    for line in reversed(lines):
+        if line == "":
+            trailing_empty_count += 1
+        else:
+            break
+
+    value = value.rstrip("\n")
+    if chomping == "-":
+        return value
+    if chomping == "+":
+        return value + ("\n" * (trailing_empty_count + 1))
+    return value + "\n"
 
 
 def parse_frontmatter(content: str) -> Dict[str, Any]:
     """Parse YAML frontmatter into a flat dict.
 
-    Simple line-by-line parser (no PyYAML dependency).
-    Handles both quoted and unquoted values.
+    Dependency-free parser for flat mappings.
+    Handles quoted/unquoted values and YAML block scalars.
     Returns ``{}`` if no valid frontmatter is found.
     """
     if not content.startswith("---"):
@@ -88,14 +193,7 @@ def parse_frontmatter(content: str) -> Dict[str, Any]:
     match = _FRONTMATTER_RE.match(content)
     if not match:
         return {}
-    fm: Dict[str, Any] = {}
-    for line in match.group(1).split("\n"):
-        if ":" in line:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            if key:
-                fm[key] = _yaml_unquote(value.strip())
-    return fm
+    return _parse_yaml_lines(match.group(1).split("\n"))
 
 
 def get_frontmatter_field(content: str, field_name: str) -> Optional[str]:
@@ -108,12 +206,9 @@ def get_frontmatter_field(content: str, field_name: str) -> Optional[str]:
     match = _FRONTMATTER_RE.match(content)
     if not match:
         return None
-    for line in match.group(1).split("\n"):
-        if ":" in line:
-            key, value = line.split(":", 1)
-            if key.strip() == field_name:
-                return _yaml_unquote(value.strip())
-    return None
+    fm = _parse_yaml_lines(match.group(1).split("\n"))
+    value = fm.get(field_name)
+    return value if isinstance(value, str) else None
 
 
 def set_frontmatter_field(content: str, field_name: str, value: str) -> str:
@@ -306,4 +401,3 @@ def truncate(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + f"\n\n... [truncated at {max_chars} chars]"
-
