@@ -123,16 +123,17 @@ OpenSpace uses [LiteLLM](https://docs.litellm.ai/docs/providers) for model routi
 | Anthropic | `anthropic/claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
 | OpenAI | `openai/gpt-4o` | `OPENAI_API_KEY` |
 | DeepSeek | `deepseek/deepseek-chat` | `DEEPSEEK_API_KEY` |
-| MiniMax | `minimax/MiniMax-M2.7` | `MINIMAX_API_KEY` |
+| MiniMax | `minimax/MiniMax-M3` | `MINIMAX_API_KEY` |
 
 ### MiniMax
 
-[MiniMax](https://platform.minimax.io) offers high-performance LLMs with 204K context at competitive pricing.
+[MiniMax](https://platform.minimax.io) offers high-performance LLMs at competitive pricing.
 
 **Available models:**
 
 | Model | Context | Description |
 |-------|---------|-------------|
+| `MiniMax-M3` | 512K | Latest model, max output 128K, supports image input (default) |
 | `MiniMax-M2.7` | 204K | Peak performance, ultimate value |
 | `MiniMax-M2.7-highspeed` | 204K | Same performance, faster and more agile |
 
@@ -143,7 +144,7 @@ OpenSpace uses [LiteLLM](https://docs.litellm.ai/docs/providers) for model routi
 export MINIMAX_API_KEY=your-key-here
 
 # Run with MiniMax
-openspace --model "minimax/MiniMax-M2.7" --query "your task"
+openspace --model "minimax/MiniMax-M3" --query "your task"
 ```
 
 **API docs:** [OpenAI-compatible API](https://platform.minimax.io/docs/api-reference/text-openai-api)

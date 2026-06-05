@@ -15,6 +15,9 @@ from openspace.host_detection.resolver import build_llm_kwargs
 class TestIsMiniMaxModel(unittest.TestCase):
     """Tests for MiniMax model detection."""
 
+    def test_minimax_m3_model(self):
+        self.assertTrue(_is_minimax_model("minimax/MiniMax-M3"))
+
     def test_minimax_prefixed_model(self):
         self.assertTrue(_is_minimax_model("minimax/MiniMax-M2.7"))
 
@@ -22,10 +25,10 @@ class TestIsMiniMaxModel(unittest.TestCase):
         self.assertTrue(_is_minimax_model("minimax/MiniMax-M2.7-highspeed"))
 
     def test_minimax_case_insensitive(self):
-        self.assertTrue(_is_minimax_model("MiniMax/MiniMax-M2.7"))
+        self.assertTrue(_is_minimax_model("MiniMax/MiniMax-M3"))
 
     def test_minimax_in_openai_compat(self):
-        self.assertTrue(_is_minimax_model("openai/MiniMax-M2.7"))
+        self.assertTrue(_is_minimax_model("openai/MiniMax-M3"))
 
     def test_non_minimax_openai_model(self):
         self.assertFalse(_is_minimax_model("openai/gpt-4o"))
@@ -45,44 +48,44 @@ class TestApplyMiniMaxConstraints(unittest.TestCase):
 
     def test_clamp_temperature_zero(self):
         """Temperature 0 should be clamped to 0.01."""
-        kwargs = {"model": "minimax/MiniMax-M2.7", "temperature": 0}
+        kwargs = {"model": "minimax/MiniMax-M3", "temperature": 0}
         result = _apply_minimax_constraints(kwargs)
         self.assertEqual(result["temperature"], 0.01)
 
     def test_clamp_temperature_negative(self):
         """Negative temperature should be clamped to 0.01."""
-        kwargs = {"model": "minimax/MiniMax-M2.7", "temperature": -0.5}
+        kwargs = {"model": "minimax/MiniMax-M3", "temperature": -0.5}
         result = _apply_minimax_constraints(kwargs)
         self.assertEqual(result["temperature"], 0.01)
 
     def test_clamp_temperature_above_one(self):
         """Temperature > 1.0 should be clamped to 1.0."""
-        kwargs = {"model": "minimax/MiniMax-M2.7", "temperature": 1.5}
+        kwargs = {"model": "minimax/MiniMax-M3", "temperature": 1.5}
         result = _apply_minimax_constraints(kwargs)
         self.assertEqual(result["temperature"], 1.0)
 
     def test_valid_temperature_unchanged(self):
         """Valid temperature (0 < t <= 1.0) should remain unchanged."""
-        kwargs = {"model": "minimax/MiniMax-M2.7", "temperature": 0.7}
+        kwargs = {"model": "minimax/MiniMax-M3", "temperature": 0.7}
         result = _apply_minimax_constraints(kwargs)
         self.assertEqual(result["temperature"], 0.7)
 
     def test_temperature_one_unchanged(self):
         """Temperature 1.0 is valid and should remain unchanged."""
-        kwargs = {"model": "minimax/MiniMax-M2.7", "temperature": 1.0}
+        kwargs = {"model": "minimax/MiniMax-M3", "temperature": 1.0}
         result = _apply_minimax_constraints(kwargs)
         self.assertEqual(result["temperature"], 1.0)
 
     def test_no_temperature_no_change(self):
         """When temperature is not set, no clamping should occur."""
-        kwargs = {"model": "minimax/MiniMax-M2.7"}
+        kwargs = {"model": "minimax/MiniMax-M3"}
         result = _apply_minimax_constraints(kwargs)
         self.assertNotIn("temperature", result)
 
     def test_remove_response_format(self):
         """response_format should be removed for MiniMax models."""
         kwargs = {
-            "model": "minimax/MiniMax-M2.7",
+            "model": "minimax/MiniMax-M3",
             "response_format": {"type": "json_object"},
         }
         result = _apply_minimax_constraints(kwargs)
@@ -91,7 +94,7 @@ class TestApplyMiniMaxConstraints(unittest.TestCase):
     def test_other_params_preserved(self):
         """Non-constrained parameters should be preserved."""
         kwargs = {
-            "model": "minimax/MiniMax-M2.7",
+            "model": "minimax/MiniMax-M3",
             "temperature": 0.5,
             "max_tokens": 1024,
             "messages": [{"role": "user", "content": "Hello"}],
@@ -100,6 +103,12 @@ class TestApplyMiniMaxConstraints(unittest.TestCase):
         self.assertEqual(result["max_tokens"], 1024)
         self.assertEqual(result["messages"], [{"role": "user", "content": "Hello"}])
         self.assertEqual(result["temperature"], 0.5)
+
+    def test_constraints_apply_to_m27_legacy(self):
+        """Constraints should also apply to legacy M2.7 models."""
+        kwargs = {"model": "minimax/MiniMax-M2.7", "temperature": 0}
+        result = _apply_minimax_constraints(kwargs)
+        self.assertEqual(result["temperature"], 0.01)
 
 
 class TestProviderRegistry(unittest.TestCase):
@@ -124,8 +133,18 @@ class TestProviderRegistry(unittest.TestCase):
                 self.assertIn("minimax", keywords)
                 break
 
+    def test_match_provider_minimax_m3(self):
+        """match_provider should find minimax config for M3 models."""
+        providers = {
+            "minimax": {"apiKey": "test-key-m3"},
+        }
+        result = match_provider(providers, "minimax/MiniMax-M3")
+        self.assertIsNotNone(result)
+        self.assertEqual(result["api_key"], "test-key-m3")
+        self.assertEqual(result["api_base"], "https://api.minimax.io/v1")
+
     def test_match_provider_minimax_model(self):
-        """match_provider should find minimax config for minimax models."""
+        """match_provider should find minimax config for legacy M2.7 models."""
         providers = {
             "minimax": {"apiKey": "test-key-123"},
         }
@@ -139,7 +158,7 @@ class TestProviderRegistry(unittest.TestCase):
         providers = {
             "minimax": {"apiKey": "test-key-456"},
         }
-        result = match_provider(providers, "MiniMax-M2.7")
+        result = match_provider(providers, "MiniMax-M3")
         self.assertIsNotNone(result)
         self.assertEqual(result["api_key"], "test-key-456")
 
@@ -159,8 +178,17 @@ class TestResolverMiniMaxDetection(unittest.TestCase):
 
     @patch.dict(os.environ, {"MINIMAX_API_KEY": "minimax-test-key"}, clear=False)
     @patch("openspace.host_detection.nanobot.try_read_nanobot_config", return_value=None)
-    def test_auto_detect_minimax_api_key(self, _mock_nanobot):
-        """MINIMAX_API_KEY should be auto-detected for minimax models."""
+    def test_auto_detect_minimax_api_key_m3(self, _mock_nanobot):
+        """MINIMAX_API_KEY should be auto-detected for minimax M3 models."""
+        model, kwargs = build_llm_kwargs("minimax/MiniMax-M3")
+        self.assertEqual(model, "minimax/MiniMax-M3")
+        self.assertEqual(kwargs.get("api_key"), "minimax-test-key")
+        self.assertEqual(kwargs.get("api_base"), "https://api.minimax.io/v1")
+
+    @patch.dict(os.environ, {"MINIMAX_API_KEY": "minimax-test-key"}, clear=False)
+    @patch("openspace.host_detection.nanobot.try_read_nanobot_config", return_value=None)
+    def test_auto_detect_minimax_api_key_m27(self, _mock_nanobot):
+        """MINIMAX_API_KEY should still be auto-detected for legacy M2.7 models."""
         model, kwargs = build_llm_kwargs("minimax/MiniMax-M2.7")
         self.assertEqual(model, "minimax/MiniMax-M2.7")
         self.assertEqual(kwargs.get("api_key"), "minimax-test-key")
@@ -172,8 +200,8 @@ class TestResolverMiniMaxDetection(unittest.TestCase):
         """Without MINIMAX_API_KEY, no api_key should be set."""
         # Remove MINIMAX_API_KEY if it exists
         os.environ.pop("MINIMAX_API_KEY", None)
-        model, kwargs = build_llm_kwargs("minimax/MiniMax-M2.7")
-        self.assertEqual(model, "minimax/MiniMax-M2.7")
+        model, kwargs = build_llm_kwargs("minimax/MiniMax-M3")
+        self.assertEqual(model, "minimax/MiniMax-M3")
         self.assertNotIn("api_key", kwargs)
 
     @patch.dict(os.environ, {"MINIMAX_API_KEY": "minimax-key"}, clear=False)
@@ -192,7 +220,7 @@ class TestResolverMiniMaxDetection(unittest.TestCase):
     @patch("openspace.host_detection.nanobot.try_read_nanobot_config", return_value=None)
     def test_explicit_key_overrides_minimax(self, _mock_nanobot):
         """OPENSPACE_LLM_API_KEY (Tier 1) should override MINIMAX_API_KEY (Tier 3)."""
-        model, kwargs = build_llm_kwargs("minimax/MiniMax-M2.7")
+        model, kwargs = build_llm_kwargs("minimax/MiniMax-M3")
         self.assertEqual(kwargs["api_key"], "explicit-key")
 
 

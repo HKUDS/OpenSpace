@@ -16,8 +16,23 @@ SKIP_REASON = "MINIMAX_API_KEY not set"
 class TestMiniMaxChatIntegration(unittest.TestCase):
     """Integration tests for MiniMax chat completions via litellm."""
 
+    def test_m3_chat_completion(self):
+        """MiniMax M3 should return a valid chat completion."""
+        import litellm
+
+        response = litellm.completion(
+            model="minimax/MiniMax-M3",
+            messages=[{"role": "user", "content": "What is 2+2? Reply with just the number."}],
+            max_tokens=50,
+            temperature=0.5,
+            api_key=MINIMAX_API_KEY,
+        )
+        self.assertTrue(response.choices)
+        content = response.choices[0].message.content
+        self.assertIsNotNone(content)
+
     def test_basic_chat_completion(self):
-        """MiniMax M2.7 should return a valid chat completion."""
+        """MiniMax M2.7 should still return a valid chat completion."""
         import litellm
 
         response = litellm.completion(
@@ -46,11 +61,11 @@ class TestMiniMaxChatIntegration(unittest.TestCase):
         self.assertTrue(response.choices[0].message.content)
 
     def test_llm_client_with_minimax(self):
-        """LLMClient should work with MiniMax models (temperature clamping applied)."""
+        """LLMClient should work with MiniMax M3 (temperature clamping applied)."""
         from openspace.llm.client import LLMClient
 
         client = LLMClient(
-            model="minimax/MiniMax-M2.7-highspeed",
+            model="minimax/MiniMax-M3",
             timeout=30.0,
             max_retries=1,
             api_key=MINIMAX_API_KEY,
