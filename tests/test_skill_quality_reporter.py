@@ -234,8 +234,24 @@ def test_disabled_quality_gate_skips_before_invalid_cloud_config(monkeypatch, tm
     def fail_client_construction(*args, **kwargs):
         raise AssertionError("OpenSpaceClient should not be constructed")
 
+    def fail_config_load(*args, **kwargs):
+        raise AssertionError("load_cloud_config should not be called")
+
+    def fail_outbox_construction(*args, **kwargs):
+        raise AssertionError("CloudTelemetryOutbox should not be constructed")
+
+    def fail_executor_construction(*args, **kwargs):
+        raise AssertionError("ThreadPoolExecutor should not be constructed")
+
+    def fail_sync_body(*args, **kwargs):
+        raise AssertionError("_maybe_report_analysis_sync should not be called")
+
+    monkeypatch.setattr(reporter_module, "load_cloud_config", fail_config_load)
     monkeypatch.setattr(reporter_module, "OpenSpaceClient", fail_client_construction)
+    monkeypatch.setattr(reporter_module, "CloudTelemetryOutbox", fail_outbox_construction)
+    monkeypatch.setattr(reporter_module, "ThreadPoolExecutor", fail_executor_construction)
     reporter = CloudSkillQualityReporter(workspace_root=tmp_path)
+    monkeypatch.setattr(reporter, "_maybe_report_analysis_sync", fail_sync_body)
 
     result = _run(reporter.maybe_report_analysis(_analysis()))
 

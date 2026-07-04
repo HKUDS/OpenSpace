@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import Future as ConcurrentFuture
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +30,7 @@ logger = Logger.get_logger(__name__)
 QUALITY_EVENT_KIND = "skill_judgment"
 QUALITY_SCHEMA_VERSION = "skill_quality_v1"
 QUALITY_DENOMINATOR = "analyzer_judged_skill_use"
+EXECUTOR_POLL_INTERVAL_SECONDS = 0.01
 
 
 class CloudSkillQualityReporter:
@@ -57,12 +60,39 @@ class CloudSkillQualityReporter:
         *,
         session_id: str | None = None,
     ) -> dict[str, Any]:
+        executor: ThreadPoolExecutor | None = None
+        result_future: ConcurrentFuture[dict[str, Any]] | None = None
+        loop_future: asyncio.Future[Any] | None = None
         try:
-            return await asyncio.to_thread(
-                self._maybe_report_analysis_sync,
-                analysis,
-                session_id=session_id,
+            if not load_cloud_skill_quality_reporting_enabled():
+                return _skill_quality_reporting_disabled_result()
+
+            executor = ThreadPoolExecutor(
+                max_workers=1,
+                thread_name_prefix="openspace-skill-quality-reporter",
             )
+            result_future = ConcurrentFuture()
+
+            def run_sync_report() -> None:
+                if not result_future.set_running_or_notify_cancel():
+                    return
+                try:
+                    result_future.set_result(
+                        self._maybe_report_analysis_sync(
+                            analysis,
+                            session_id=session_id,
+                        )
+                    )
+                except BaseException as exc:
+                    result_future.set_exception(exc)
+
+            loop = asyncio.get_running_loop()
+            loop_future = loop.run_in_executor(executor, run_sync_report)
+            while not result_future.done():
+                await asyncio.sleep(EXECUTOR_POLL_INTERVAL_SECONDS)
+            if not loop_future.done():
+                loop_future.cancel()
+            return result_future.result()
         except Exception as exc:
             logger.warning(
                 "Skill quality telemetry reporter failed for task %s: %s",
@@ -74,6 +104,12 @@ class CloudSkillQualityReporter:
                 "reason": "reporter_error",
                 "error": type(exc).__name__,
             }
+        finally:
+            if loop_future is not None and not loop_future.done():
+                loop_future.cancel()
+            if executor is not None:
+                work_finished = result_future is not None and result_future.done()
+                executor.shutdown(wait=work_finished, cancel_futures=True)
 
     def _maybe_report_analysis_sync(
         self,
@@ -81,9 +117,6 @@ class CloudSkillQualityReporter:
         *,
         session_id: str | None = None,
     ) -> dict[str, Any]:
-        if not load_cloud_skill_quality_reporting_enabled():
-            return {"status": "skipped", "reason": "skill_quality_reporting_disabled"}
-
         cfg = load_cloud_config()
         if not cfg.enabled or cfg.telemetry_mode != "outbox" or not cfg.api_key:
             return {"status": "skipped", "reason": "cloud_telemetry_disabled"}
@@ -227,6 +260,10 @@ def _analysis_timestamp_iso(analysis: ExecutionAnalysis) -> str:
     if hasattr(timestamp, "isoformat"):
         return timestamp.isoformat()
     return str(timestamp)
+
+
+def _skill_quality_reporting_disabled_result() -> dict[str, Any]:
+    return {"status": "skipped", "reason": "skill_quality_reporting_disabled"}
 
 
 def _summarize_outcomes(outcomes: list[dict[str, Any]]) -> dict[str, Any]:
