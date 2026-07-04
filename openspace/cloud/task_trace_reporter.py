@@ -126,26 +126,6 @@ class CloudTaskTraceReporter:
                 package_ids=list(artifact.package_ids),
                 compression=artifact.compression,
             )
-            artifact_ref = str(upload.get("artifact_ref") or "")
-            task_report = self._task_report_payload(
-                artifact,
-                final_result,
-                artifact_ref=artifact_ref,
-                artifact_status="ready" if artifact_ref else "pending",
-            )
-            ack = client.report_telemetry("task-reported", task_report)
-            usage_outcomes = self._report_usage_events(
-                client,
-                outbox,
-                artifact,
-                final_result,
-            )
-            return {
-                "status": "reported",
-                "artifact_ref": artifact_ref,
-                "task_report_ack": ack,
-                "usage_report_outcomes": usage_outcomes,
-            }
         except Exception as exc:
             row = outbox.enqueue(
                 endpoint="/api/v2/telemetry/task-reported",
@@ -172,6 +152,50 @@ class CloudTaskTraceReporter:
                 "error": str(exc),
                 "usage_report_outcomes": usage_outcomes,
             }
+
+        artifact_ref = str(upload.get("artifact_ref") or "")
+        task_report = self._task_report_payload(
+            artifact,
+            final_result,
+            artifact_ref=artifact_ref,
+            artifact_status="ready" if artifact_ref else "pending",
+        )
+        try:
+            ack = client.report_telemetry("task-reported", task_report)
+        except Exception as exc:
+            row = outbox.enqueue(
+                endpoint="/api/v2/telemetry/task-reported",
+                payload=task_report,
+                workspace_root=self._workspace_root,
+            )
+            outbox.mark_failed(row.request_id, row.payload_hash, error=str(exc))
+            usage_outcomes = self._report_usage_events(
+                client,
+                outbox,
+                artifact,
+                final_result,
+            )
+            return {
+                "status": "queued",
+                "reason": "task_report_failed",
+                "artifact_ref": artifact_ref,
+                "outbox_request_id": row.request_id,
+                "error": str(exc),
+                "usage_report_outcomes": usage_outcomes,
+            }
+
+        usage_outcomes = self._report_usage_events(
+            client,
+            outbox,
+            artifact,
+            final_result,
+        )
+        return {
+            "status": "reported",
+            "artifact_ref": artifact_ref,
+            "task_report_ack": ack,
+            "usage_report_outcomes": usage_outcomes,
+        }
 
     def _report_usage_events(
         self,
