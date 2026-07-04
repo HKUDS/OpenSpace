@@ -45,6 +45,12 @@ if TYPE_CHECKING:
 logger = Logger.get_logger(__name__)
 
 
+def _make_skill_quality_reporter() -> Any:
+    from openspace.cloud.skill_quality_reporter import CloudSkillQualityReporter
+
+    return CloudSkillQualityReporter()
+
+
 # Maximum characters of conversation log to include in the analysis prompt.
 _MAX_CONVERSATION_CHARS = 80_000
 
@@ -360,6 +366,11 @@ class ExecutionAnalyzer:
                 analysis,
                 observed_tool_keys=context.get("used_tool_keys", set()),
             )
+            await self._report_skill_quality_after_record_analysis(
+                analysis,
+                context,
+                execution_result=execution_result,
+            )
             evo_types = [s.evolution_type.value for s in analysis.evolution_suggestions]
             logger.info(
                 f"Execution analysis saved for task {task_id}: "
@@ -405,6 +416,34 @@ class ExecutionAnalyzer:
         if isinstance(tool_executions, list) and tool_executions:
             return False
         return True
+
+    async def _report_skill_quality_after_record_analysis(
+        self,
+        analysis: ExecutionAnalysis,
+        context: Dict[str, Any],
+        *,
+        execution_result: Dict[str, Any] | None = None,
+    ) -> None:
+        try:
+            reporter = _make_skill_quality_reporter()
+            outcome = await reporter.maybe_report_analysis(
+                analysis,
+                session_id=_analysis_session_id(
+                    context,
+                    execution_result=execution_result,
+                ),
+            )
+            logger.debug(
+                "Skill quality telemetry outcome for task %s: %s",
+                analysis.task_id,
+                outcome.get("status") if isinstance(outcome, dict) else outcome,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Skill quality telemetry skipped after analyzer persistence for task %s: %s",
+                analysis.task_id,
+                exc,
+            )
 
     async def get_evolution_candidates(
         self, limit: int = 20
@@ -468,6 +507,7 @@ class ExecutionAnalyzer:
                 analysis,
                 observed_tool_keys=context.get("used_tool_keys", set()),
             )
+            await self._report_skill_quality_after_record_analysis(analysis, context)
             evo_types = [s.evolution_type.value for s in analysis.evolution_suggestions]
             logger.info(
                 "Execution packet analysis saved for task %s: completed=%s, "
@@ -523,6 +563,7 @@ class ExecutionAnalyzer:
             "packet_tool_records": packet_tool_records,
             "execution_status": str(runtime_meta.get("status") or "unknown"),
             "iterations": int(runtime_meta.get("iterations") or 0),
+            "session_id": _packet_session_id(packet),
             "recording_dir": _packet_recording_dir(packet),
             "packet": packet,
         }
@@ -1706,3 +1747,52 @@ def _packet_recording_dir(packet: "EvidencePacket") -> str:
     for ref in packet.selected_refs.get("recording_ref", []):
         return str(ref.uri or ref.metadata.get("recording_dir") or "")
     return ""
+
+
+def _analysis_session_id(
+    context: Dict[str, Any],
+    *,
+    execution_result: Dict[str, Any] | None = None,
+) -> str | None:
+    if execution_result is not None:
+        session_id = _clean_session_id(execution_result.get("session_id"))
+        if session_id:
+            return session_id
+    session_id = _clean_session_id(context.get("session_id"))
+    if session_id:
+        return session_id
+    packet = context.get("packet")
+    if packet is not None:
+        return _packet_session_id(packet)
+    return None
+
+
+def _packet_session_id(packet: "EvidencePacket") -> str | None:
+    scope = getattr(packet, "scope", None)
+    session_id = _clean_session_id(getattr(scope, "session_id", None))
+    if session_id:
+        return session_id
+    selected_refs = getattr(packet, "selected_refs", None)
+    if not isinstance(selected_refs, dict):
+        return None
+    refs = [
+        ref
+        for ref_type in sorted(selected_refs)
+        for ref in selected_refs.get(ref_type, []) or []
+    ]
+    for ref in refs:
+        session_id = _clean_session_id(getattr(ref, "session_id", None))
+        if session_id:
+            return session_id
+    for ref in refs:
+        metadata = getattr(ref, "metadata", None)
+        if isinstance(metadata, dict):
+            session_id = _clean_session_id(metadata.get("session_id"))
+            if session_id:
+                return session_id
+    return None
+
+
+def _clean_session_id(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None

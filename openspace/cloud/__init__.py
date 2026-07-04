@@ -10,10 +10,15 @@ Provides:
   - ``generate_embedding`` — OpenAI embedding generation
   - ``CloudTelemetryOutbox`` — redacted telemetry retry queue
   - ``TaskTraceExporter`` — openspace_task_trace_v2 archive builder
+  - ``CloudSkillQualityReporter`` — analyzer skill quality telemetry reporter
   - telemetry payload helpers — schema-aligned telemetry builders
 """
 
-from openspace.cloud.config import CloudConfig, load_cloud_config
+from openspace.cloud.config import (
+    CloudConfig,
+    load_cloud_config,
+    load_cloud_skill_quality_reporting_enabled,
+)
 
 
 def __getattr__(name: str):
@@ -44,6 +49,9 @@ def __getattr__(name: str):
     if name == "CloudTaskTraceReporter":
         from openspace.cloud.task_trace_reporter import CloudTaskTraceReporter
         return CloudTaskTraceReporter
+    if name == "CloudSkillQualityReporter":
+        from openspace.cloud.skill_quality_reporter import CloudSkillQualityReporter
+        return CloudSkillQualityReporter
     if name in {
         "build_task_report_payload",
         "build_skill_use_report_payload",
@@ -64,11 +72,13 @@ __all__ = [
     "PackagePlacementResolver",
     "CloudConfig",
     "load_cloud_config",
+    "load_cloud_skill_quality_reporting_enabled",
     "SkillSearchEngine",
     "generate_embedding",
     "CloudTelemetryOutbox",
     "TaskTraceExporter",
     "CloudTaskTraceReporter",
+    "CloudSkillQualityReporter",
     "build_task_report_payload",
     "build_skill_use_report_payload",
     "build_evolve_report_payload",

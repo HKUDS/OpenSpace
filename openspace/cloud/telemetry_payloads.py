@@ -90,6 +90,14 @@ def build_skill_use_report_payload(
     redaction_level: str = "abstract_only",
     redaction_performed_by: str = "client",
     redaction_policy_version: str | None = None,
+    quality_event_kind: str | None = None,
+    quality_schema_version: str | None = None,
+    denominator: str | None = None,
+    skill_applied: bool | None = None,
+    task_completed: bool | None = None,
+    skill_phase_failed: bool | None = None,
+    completed: bool | None = None,
+    fallback: bool | None = None,
 ) -> dict[str, Any]:
     """Build a payload accepted by POST /api/v2/telemetry/skill-use-reported."""
 
@@ -110,6 +118,14 @@ def build_skill_use_report_payload(
     _put_optional(payload, "failure_reason", failure_reason)
     _put_optional(payload, "error_code", error_code)
     _put_optional(payload, "redaction_policy_version", redaction_policy_version)
+    _put_optional(payload, "quality_event_kind", quality_event_kind)
+    _put_optional(payload, "quality_schema_version", quality_schema_version)
+    _put_optional(payload, "denominator", denominator)
+    _put_optional(payload, "skill_applied", skill_applied)
+    _put_optional(payload, "task_completed", task_completed)
+    _put_optional(payload, "skill_phase_failed", skill_phase_failed)
+    _put_optional(payload, "completed", completed)
+    _put_optional(payload, "fallback", fallback)
     if extras:
         payload["extras"] = dict(extras)
     return payload

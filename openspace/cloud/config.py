@@ -16,11 +16,13 @@ OPENSPACE_CLOUD_MODE_ENV = "OPENSPACE_CLOUD_MODE"
 OPENSPACE_CLOUD_BASE_URL_ENV = "OPENSPACE_CLOUD_BASE_URL"
 OPENSPACE_CLOUD_API_KEY_ENV = "OPENSPACE_CLOUD_API_KEY"
 OPENSPACE_CLOUD_TELEMETRY_MODE_ENV = "OPENSPACE_CLOUD_TELEMETRY_MODE"
+OPENSPACE_CLOUD_SKILL_QUALITY_REPORTING_ENV = "OPENSPACE_CLOUD_SKILL_QUALITY_REPORTING"
 
 DEFAULT_CLOUD_BASE_URL = "https://open-space.cloud"
 
 _ALLOWED_CLOUD_MODES = {"off", "live"}
 _ALLOWED_TELEMETRY_MODES = {"off", "outbox"}
+_TRUE_CONFIG_VALUES = {"1", "true", "yes", "on", "enabled"}
 
 
 class CloudConfigError(RuntimeError):
@@ -64,6 +66,10 @@ def _normalize_telemetry_mode(value: str) -> TelemetryMode:
     return mode  # type: ignore[return-value]
 
 
+def _normalize_enabled_flag(value: str) -> bool:
+    return (value or "").strip().lower() in _TRUE_CONFIG_VALUES
+
+
 def normalize_cloud_base_url(value: str) -> str:
     base_url = (value or DEFAULT_CLOUD_BASE_URL).strip().rstrip("/")
     parsed = urlparse(base_url)
@@ -101,6 +107,20 @@ def load_cloud_config() -> CloudConfig:
         base_url=base_url,
         api_key=api_key,
         telemetry_mode=telemetry_mode,
+    )
+
+
+def load_cloud_skill_quality_reporting_enabled() -> bool:
+    """Return whether analyzer skill-quality telemetry may be emitted.
+
+    This gate is separate from broader telemetry mode so live clients do not
+    send first-class quality fields until server support is explicitly enabled.
+    """
+
+    load_runtime_env()
+    host_env = read_host_mcp_env()
+    return _normalize_enabled_flag(
+        _get_cloud_env(OPENSPACE_CLOUD_SKILL_QUALITY_REPORTING_ENV, host_env)
     )
 
 

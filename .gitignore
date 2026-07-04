@@ -21,8 +21,11 @@ Desktop.ini
 
 # Development-only repository folders
 docs/
-tests/
 scripts/
+tests/*
+!tests/
+!tests/test_skill_quality_reporter.py
+!tests/test_analyzer_skill_quality_reporting.py
 
 # Local agent/project memory
 OPENSPACE.md
