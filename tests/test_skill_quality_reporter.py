@@ -2,8 +2,10 @@ import asyncio
 import json
 from datetime import datetime
 
+import openspace.cloud.skill_quality_reporter as reporter_module
 from openspace.cloud.config import (
     OPENSPACE_CLOUD_API_KEY_ENV,
+    OPENSPACE_CLOUD_BASE_URL_ENV,
     OPENSPACE_CLOUD_MODE_ENV,
     OPENSPACE_CLOUD_SKILL_QUALITY_REPORTING_ENV,
     OPENSPACE_CLOUD_TELEMETRY_MODE_ENV,
@@ -44,6 +46,7 @@ def _set_cloud_env(
     _patch_host_env(monkeypatch)
     for key in (
         OPENSPACE_CLOUD_MODE_ENV,
+        OPENSPACE_CLOUD_BASE_URL_ENV,
         OPENSPACE_CLOUD_TELEMETRY_MODE_ENV,
         OPENSPACE_CLOUD_API_KEY_ENV,
         OPENSPACE_CLOUD_SKILL_QUALITY_REPORTING_ENV,
@@ -93,20 +96,86 @@ def _analysis(
         timestamp=timestamp or datetime(2026, 1, 2, 3, 4, 5, 123456),
         task_completed=task_completed,
         execution_note=(
-            "RAW_EXECUTION_NOTE prompt transcript /tmp/private/file.diff token hash "
-            "redacted_preview"
+            "RAW_EXECUTION_NOTE prompt messages transcript /tmp/private/file.diff "
+            "raw_error token sk-private authorization Bearer secret redacted_preview sha256"
         ),
-        tool_issues=["RAW_TOOL_ISSUE traceback /home/user/project/file.py"],
+        tool_issues=[
+            "RAW_TOOL_ISSUE traceback /home/user/project/file.py API_KEY=secret"
+        ],
         skill_judgments=judgments
         or [
             SkillJudgment(
                 skill_id="local-skill-1",
                 skill_applied=True,
-                note="RAW_SKILL_NOTE prompt diff token",
+                note="RAW_SKILL_NOTE prompt diff token authorization",
             )
         ],
         skill_phase_failed_skill_ids=phase_failed_ids or [],
     )
+
+
+QUALITY_FIELDS = {
+    "quality_event_kind",
+    "quality_schema_version",
+    "denominator",
+    "skill_applied",
+    "task_completed",
+    "skill_phase_failed",
+    "completed",
+    "fallback",
+}
+
+
+def _walk_keys(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from _walk_keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _walk_keys(item)
+
+
+def _assert_private_analysis_text_absent(payload):
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).lower()
+    for forbidden in (
+        "raw_skill_note",
+        "raw_execution_note",
+        "raw_tool_issue",
+        "prompt",
+        "messages",
+        "transcript",
+        "file.diff",
+        "/tmp/",
+        "/home/",
+        "traceback",
+        "raw_error",
+        "sk-private",
+        "api_key",
+        "bearer ",
+        "authorization",
+        "redacted_preview",
+        "sha256",
+    ):
+        assert forbidden not in encoded
+    forbidden_keys = {
+        "note",
+        "execution_note",
+        "tool_issues",
+        "prompt",
+        "messages",
+        "transcript",
+        "path",
+        "diff",
+        "raw_error",
+        "raw_diagnostic",
+        "redacted_preview",
+        "sha256",
+        "api_key",
+        "authorization",
+        "token",
+    }
+    assert forbidden_keys.isdisjoint({key.lower() for key in _walk_keys(payload)})
 
 
 def test_gates_default_disabled_and_enabled(monkeypatch, tmp_path):
@@ -145,6 +214,36 @@ def test_gates_default_disabled_and_enabled(monkeypatch, tmp_path):
     assert result["status"] == "reported"
     assert len(client.calls) == 1
     assert client.calls[0][0] == "skill-use-reported"
+
+
+def test_disabled_quality_gate_skips_before_invalid_cloud_config(monkeypatch, tmp_path):
+    _patch_host_env(monkeypatch)
+    for key in (
+        OPENSPACE_CLOUD_MODE_ENV,
+        OPENSPACE_CLOUD_BASE_URL_ENV,
+        OPENSPACE_CLOUD_TELEMETRY_MODE_ENV,
+        OPENSPACE_CLOUD_API_KEY_ENV,
+        OPENSPACE_CLOUD_SKILL_QUALITY_REPORTING_ENV,
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv(OPENSPACE_CLOUD_MODE_ENV, "invalid-mode")
+    monkeypatch.setenv(OPENSPACE_CLOUD_BASE_URL_ENV, "not-a-service-root")
+    monkeypatch.setenv(OPENSPACE_CLOUD_TELEMETRY_MODE_ENV, "invalid-telemetry")
+    monkeypatch.setenv(OPENSPACE_CLOUD_API_KEY_ENV, "test-key")
+
+    def fail_client_construction(*args, **kwargs):
+        raise AssertionError("OpenSpaceClient should not be constructed")
+
+    monkeypatch.setattr(reporter_module, "OpenSpaceClient", fail_client_construction)
+    reporter = CloudSkillQualityReporter(workspace_root=tmp_path)
+
+    result = _run(reporter.maybe_report_analysis(_analysis()))
+
+    assert result == {
+        "status": "skipped",
+        "reason": "skill_quality_reporting_disabled",
+    }
+    assert not list(tmp_path.rglob("*.db"))
 
 
 def test_local_only_and_missing_cloud_binding_skipped(monkeypatch, tmp_path):
@@ -195,17 +294,41 @@ def test_request_id_exact_and_independent_of_mutable_fields():
         "cloud-skill-1",
     )
 
-    failed_payload = build_skill_quality_judgment_payload(
-        _analysis(
-            timestamp=datetime(2026, 1, 3, 0, 0, 0),
-            task_completed=False,
-            judgments=[SkillJudgment("local-skill-1", False, "ignored")],
+    variants = [
+        build_skill_quality_judgment_payload(
+            _analysis(
+                timestamp=datetime(2026, 1, 3, 0, 0, 0),
+                judgments=[judgment],
+            ),
+            judgment,
+            cloud_skill_id="cloud-skill-1",
+            session_id="session-b",
         ),
-        SkillJudgment("local-skill-1", False, "ignored"),
-        cloud_skill_id="cloud-skill-1",
-        session_id="session-b",
-    )
-    assert failed_payload["request_id"] == payload["request_id"]
+        build_skill_quality_judgment_payload(
+            _analysis(
+                task_completed=False,
+                judgments=[SkillJudgment("local-skill-1", False, "ignored")],
+            ),
+            SkillJudgment("local-skill-1", False, "ignored"),
+            cloud_skill_id="cloud-skill-1",
+            session_id="session-c",
+        ),
+        build_skill_quality_judgment_payload(
+            _analysis(
+                judgments=[judgment],
+                phase_failed_ids=["local-skill-1"],
+            ),
+            judgment,
+            cloud_skill_id="cloud-skill-1",
+        ),
+    ]
+    assert variants[0]["occurred_at"] != payload["occurred_at"]
+    assert variants[1]["status"] == "failed"
+    assert variants[1]["failure_reason"] == "unknown"
+    assert variants[2]["skill_phase_failed"] is True
+    for variant in variants:
+        assert variant["request_id"] == payload["request_id"]
+        assert "duration_ms" not in variant
 
 
 def test_payload_fields_stability_status_and_privacy():
@@ -223,6 +346,19 @@ def test_payload_fields_stability_status_and_privacy():
         cloud_skill_id="cloud-skill-1",
         session_id="session-a",
     )
+    assert set(payload) == {
+        "request_id",
+        "occurred_at",
+        "status",
+        "task_id",
+        "cloud_skill_id",
+        "redaction_level",
+        "redaction_performed_by",
+        "session_id",
+        "local_skill_id",
+        "redaction_policy_version",
+        *QUALITY_FIELDS,
+    }
     assert payload["occurred_at"] == analysis.timestamp.isoformat()
     assert "duration_ms" not in payload
     assert payload["status"] == "success"
@@ -250,20 +386,118 @@ def test_payload_fields_stability_status_and_privacy():
     assert failed["completed"] is False
     assert failed["fallback"] is True
     assert failed["status"] != "partial_success"
+    assert failed["failure_reason"] != "not_applicable"
+    assert QUALITY_FIELDS.issubset(failed)
+    assert not (QUALITY_FIELDS & set((failed.get("extras") or {}).keys()))
 
-    encoded = json.dumps({**payload, **failed}, sort_keys=True)
+    _assert_private_analysis_text_absent(payload)
+    _assert_private_analysis_text_absent(failed)
+
+
+def test_payload_outbox_hash_stable_for_same_persisted_analysis(tmp_path):
+    persisted = ExecutionAnalysis.from_dict(_analysis().to_dict())
+    judgment = persisted.skill_judgments[0]
+    payload = build_skill_quality_judgment_payload(
+        persisted,
+        judgment,
+        cloud_skill_id="cloud-skill-1",
+        session_id="session-a",
+    )
+    rebuilt = build_skill_quality_judgment_payload(
+        persisted,
+        judgment,
+        cloud_skill_id="cloud-skill-1",
+        session_id="session-a",
+    )
+    assert payload == rebuilt
+
+    outbox = CloudTelemetryOutbox(tmp_path / "outbox.db")
+    first = outbox.enqueue(
+        endpoint="/api/v2/telemetry/skill-use-reported",
+        payload=payload,
+    )
+    second = outbox.enqueue(
+        endpoint="/api/v2/telemetry/skill-use-reported",
+        payload=rebuilt,
+    )
+
+    assert first.request_id == second.request_id == payload["request_id"]
+    assert first.payload_hash == second.payload_hash
+    assert first.payload_redacted == second.payload_redacted
+    assert len(outbox.list_pending()) == 1
+    assert first.payload_redacted["occurred_at"] == persisted.timestamp.isoformat()
+    assert "duration_ms" not in first.payload_redacted
+    assert QUALITY_FIELDS.issubset(first.payload_redacted)
+    assert not (QUALITY_FIELDS & set((first.payload_redacted.get("extras") or {}).keys()))
+    _assert_private_analysis_text_absent(first.payload_redacted)
+
+
+def test_occurred_at_redaction_bypass_requires_timestamp_shape(tmp_path):
+    occurred_at = "2026-01-02T03:04:05.123456"
+    raw_nested = (
+        'call +1 415 555 0101; File "/tmp/private/raw_trace.py", line 9, '
+        "in handler; token sk-private-token"
+    )
+    redacted = redact_telemetry_payload(
+        {
+            "request_id": "openspace:test:occurred-at",
+            "occurred_at": occurred_at,
+            "status": "success",
+            "task_id": "task-1",
+            "cloud_skill_id": "cloud-skill-1",
+            "extras": {"occurred_at": raw_nested},
+        },
+        workspace_root=tmp_path,
+    )
+
+    assert redacted["occurred_at"] == occurred_at
+    nested = redacted["extras"]["occurred_at"]
+    assert nested != raw_nested
+    assert "[REDACTED_PHONE]" in nested
+    assert "<redacted>" in nested
+    assert "path_hash:" in nested
     for forbidden in (
-        "RAW_SKILL_NOTE",
-        "RAW_EXECUTION_NOTE",
-        "RAW_TOOL_ISSUE",
-        "prompt",
-        "transcript",
-        "file.diff",
-        "traceback",
-        "token",
-        "redacted_preview",
+        "+1 415 555 0101",
+        "/tmp/private",
+        "raw_trace.py",
+        "sk-private-token",
     ):
-        assert forbidden not in encoded
+        assert forbidden not in nested
+
+
+def test_status_mapping_ignores_free_text_partial_and_not_applicable_signals():
+    success_judgment = SkillJudgment(
+        "local-skill-1",
+        True,
+        "partial_success failed not_applicable raw note ignored",
+    )
+    success = build_skill_quality_judgment_payload(
+        _analysis(
+            task_completed=True,
+            judgments=[success_judgment],
+        ),
+        success_judgment,
+        cloud_skill_id="cloud-skill-1",
+    )
+    assert success["status"] == "success"
+    assert "failure_reason" not in success
+
+    failed_judgment = SkillJudgment(
+        "local-skill-1",
+        True,
+        "partial_success success not_applicable ignored",
+    )
+    failed = build_skill_quality_judgment_payload(
+        _analysis(
+            task_completed=False,
+            judgments=[failed_judgment],
+        ),
+        failed_judgment,
+        cloud_skill_id="cloud-skill-1",
+    )
+    assert failed["status"] == "failed"
+    assert failed["failure_reason"] == "unknown"
+    assert {success["status"], failed["status"]} <= {"success", "failed"}
 
 
 def test_phase_failed_success_candidate_reports_failed_unknown():
@@ -309,6 +543,7 @@ def test_outbox_redaction_preserves_quality_fields(monkeypatch, tmp_path):
     assert row.payload_redacted["quality_event_kind"] == QUALITY_EVENT_KIND
     assert row.payload_redacted["denominator"] == QUALITY_DENOMINATOR
     assert row.payload_redacted["fallback"] is True
+    _assert_private_analysis_text_absent(row.payload_redacted)
 
 
 def test_repeated_report_uses_same_outbox_row_for_same_payload(monkeypatch, tmp_path):
@@ -343,3 +578,59 @@ def test_repeated_report_uses_same_outbox_row_for_same_payload(monkeypatch, tmp_
             "cloud-skill-1",
         )
     }
+    assert len({row.payload_hash for row in failed_rows}) == 2
+
+
+def test_multi_skill_failed_trajectory_reports_one_payload_per_cloud_bound_judgment(
+    monkeypatch,
+    tmp_path,
+):
+    _set_cloud_env(monkeypatch, quality=True)
+    client = FakeClient()
+    reporter = CloudSkillQualityReporter(
+        client=client,
+        mapping_store=FakeMappingStore(
+            tmp_path,
+            {
+                "local-skill-1": SkillCloudBinding("local-skill-1", "cloud-skill-1"),
+                "local-skill-2": SkillCloudBinding("local-skill-2", "cloud-skill-2"),
+                "local-only": SkillCloudBinding("local-only", None),
+            },
+        ),
+        outbox=CloudTelemetryOutbox(tmp_path / "outbox.db"),
+    )
+    result = _run(
+        reporter.maybe_report_analysis(
+            _analysis(
+                task_completed=False,
+                judgments=[
+                    SkillJudgment("local-skill-1", True, "ignored success-ish note"),
+                    SkillJudgment("local-skill-2", False, "ignored partial note"),
+                    SkillJudgment("local-only", True, "ignored local note"),
+                ],
+                phase_failed_ids=["local-skill-2"],
+            )
+        )
+    )
+
+    assert result["status"] == "reported"
+    assert result["reported_count"] == 2
+    assert result["skipped_count"] == 1
+    payloads = [payload for event, payload in client.calls if event == "skill-use-reported"]
+    assert {payload["local_skill_id"] for payload in payloads} == {
+        "local-skill-1",
+        "local-skill-2",
+    }
+    for payload in payloads:
+        assert payload["status"] == "failed"
+        assert payload["failure_reason"] == "unknown"
+        assert payload["task_completed"] is False
+        assert payload["completed"] is False
+        assert payload["fallback"] is True
+        assert payload["denominator"] == QUALITY_DENOMINATOR
+        _assert_private_analysis_text_absent(payload)
+    by_local = {payload["local_skill_id"]: payload for payload in payloads}
+    assert by_local["local-skill-1"]["skill_applied"] is True
+    assert by_local["local-skill-1"]["skill_phase_failed"] is False
+    assert by_local["local-skill-2"]["skill_applied"] is False
+    assert by_local["local-skill-2"]["skill_phase_failed"] is True

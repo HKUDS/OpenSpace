@@ -81,11 +81,12 @@ class CloudSkillQualityReporter:
         *,
         session_id: str | None = None,
     ) -> dict[str, Any]:
+        if not load_cloud_skill_quality_reporting_enabled():
+            return {"status": "skipped", "reason": "skill_quality_reporting_disabled"}
+
         cfg = load_cloud_config()
         if not cfg.enabled or cfg.telemetry_mode != "outbox" or not cfg.api_key:
             return {"status": "skipped", "reason": "cloud_telemetry_disabled"}
-        if not load_cloud_skill_quality_reporting_enabled():
-            return {"status": "skipped", "reason": "skill_quality_reporting_disabled"}
 
         client = self._client or OpenSpaceClient(cfg, mapping_store=self._mapping_store)
         mapping_store = self._mapping_store or client._local_mapping_store()

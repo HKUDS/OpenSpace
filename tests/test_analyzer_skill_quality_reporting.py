@@ -284,6 +284,52 @@ def test_analyze_packet_reports_after_record_analysis(monkeypatch):
     assert events == ["record", ("report", "packet-task", "scope-session")]
 
 
+def test_analyze_packet_reports_selected_ref_metadata_session_id(monkeypatch):
+    store = FakeStore()
+    packet = _packet(
+        selected_refs={
+            "tool_result": [
+                ResourceRef(
+                    "tool-1",
+                    "tool_result",
+                    metadata={"session_id": "metadata-session"},
+                )
+            ]
+        }
+    )
+    analysis = _analysis("packet-task")
+    events = store.events
+    monkeypatch.setattr(
+        analyzer_module,
+        "_make_skill_quality_reporter",
+        lambda: FakeReporter(events),
+    )
+    analyzer = _packet_analyzer(store, analysis, packet)
+
+    result = _run(analyzer.analyze_packet(packet))
+
+    assert result is analysis
+    assert events == ["record", ("report", "packet-task", "metadata-session")]
+
+
+def test_analyze_packet_reports_with_missing_session_id(monkeypatch):
+    store = FakeStore()
+    packet = _packet()
+    analysis = _analysis("packet-task")
+    events = store.events
+    monkeypatch.setattr(
+        analyzer_module,
+        "_make_skill_quality_reporter",
+        lambda: FakeReporter(events),
+    )
+    analyzer = _packet_analyzer(store, analysis, packet)
+
+    result = _run(analyzer.analyze_packet(packet))
+
+    assert result is analysis
+    assert events == ["record", ("report", "packet-task", None)]
+
+
 def test_session_id_extraction_order_and_missing_values():
     assert (
         analyzer_module._analysis_session_id(

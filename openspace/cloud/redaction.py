@@ -14,6 +14,7 @@ import re
 from typing import Any
 import json
 import hashlib
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -62,6 +63,10 @@ _URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
 _EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
 _PHONE_RE = re.compile(r"(?<!\d)(?:\+?\d[\d .()-]{7,}\d)(?!\d)")
 _TRACEBACK_RE = re.compile(r'File "([^"]+)", line (\d+), in ([^\n]+)')
+_ISO_TIMESTAMP_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}:\d{2}"
+    r"(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?"
+)
 
 _TELEMETRY_ALLOWED_KEYS = {
     "task_id",
@@ -373,10 +378,22 @@ def _redact_upload_value(
             for item in value
         )
     if isinstance(value, str):
+        if key == "occurred_at" and _is_iso_timestamp_like(value):
+            return value
         if key.endswith("_path") or key in {"local_path", "workspace_ref", "path"}:
             return sanitize_upload_path(value, workspace_root=workspace_root)
         return redact_upload_text(value, workspace_root=workspace_root)
     return redact_cloud_payload(value)
+
+
+def _is_iso_timestamp_like(value: str) -> bool:
+    if not _ISO_TIMESTAMP_RE.fullmatch(value):
+        return False
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
 
 
 def _secret_field_findings(value: Any) -> bool:
