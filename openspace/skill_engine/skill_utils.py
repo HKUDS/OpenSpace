@@ -64,6 +64,27 @@ def _yaml_quote(value: str) -> str:
     return f'"{escaped}"'
 
 
+def _format_frontmatter_value(value: Any) -> str:
+    """Serialize a frontmatter value for re-emit after PyYAML parse."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return _yaml_quote(value)
+    try:
+        import yaml
+
+        dumped = yaml.safe_dump(
+            value, default_flow_style=True, allow_unicode=True
+        ).strip()
+        return dumped
+    except Exception:
+        return _yaml_quote(str(value))
+
+
 def _yaml_unquote(value: str) -> str:
     """Strip surrounding quotes and unescape a YAML scalar value."""
     if len(value) >= 2:
@@ -180,7 +201,7 @@ def normalize_frontmatter(content: str) -> str:
     if not fm:
         return content
 
-    safe_lines = [f"{k}: {_yaml_quote(v)}" for k, v in fm.items()]
+    safe_lines = [f"{k}: {_format_frontmatter_value(v)}" for k, v in fm.items()]
     new_fm = "\n".join(safe_lines)
     return f"---\n{new_fm}\n---{content[match.end():]}"
 
