@@ -399,11 +399,13 @@ def _extract_json(text: str) -> dict[str, Any] | None:
     if match:
         text = match.group(1)
     else:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            text = match.group(0)
+        brace = text.find("{")
+        if brace >= 0:
+            text = text[brace:]
+        else:
+            return None
     try:
-        value = json.loads(text)
+        value, _ = json.JSONDecoder().raw_decode(text)
     except Exception:
         return None
     return dict(value) if isinstance(value, Mapping) else None

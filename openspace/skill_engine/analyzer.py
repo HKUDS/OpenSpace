@@ -1508,13 +1508,13 @@ class ExecutionAnalyzer:
         if code_match:
             text = code_match.group(1).strip()
         else:
-            # Try bare JSON object
-            json_match = re.search(r"\{.*\}", text, re.DOTALL)
-            if json_match:
-                text = json_match.group()
+            # Prefer the first object start; raw_decode ignores trailing prose.
+            brace = text.find("{")
+            if brace >= 0:
+                text = text[brace:]
 
         try:
-            data = json.loads(text)
+            data, _ = json.JSONDecoder().raw_decode(text)
             if isinstance(data, dict):
                 return data
             logger.warning(f"LLM returned non-dict JSON: {type(data)}")
