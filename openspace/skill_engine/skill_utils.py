@@ -58,10 +58,16 @@ _YAML_NEEDS_QUOTE_RE = re.compile(r"[:\#\[\]{}&*!|>'\"%@`]")
 
 def _yaml_quote(value: str) -> str:
     """Quote a YAML scalar value if it contains special characters."""
-    if not value or not _YAML_NEEDS_QUOTE_RE.search(value):
+    if not value:
         return value
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
+    if "\n" in value or _YAML_NEEDS_QUOTE_RE.search(value):
+        escaped = (
+            value.replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\n", "\\n")
+        )
+        return f'"{escaped}"'
+    return value
 
 
 def _yaml_unquote(value: str) -> str:
@@ -147,10 +153,17 @@ def set_frontmatter_field(content: str, field_name: str, value: str) -> str:
     new_line = f"{field_name}: {quoted}"
     found = False
     new_lines = []
+    skip_block = False
     for line in fm_text.split("\n"):
+        if skip_block:
+            if line.startswith((" ", "\t")) or line.strip() == "":
+                continue
+            skip_block = False
         if ":" in line and line.split(":", 1)[0].strip() == field_name:
             new_lines.append(new_line)
             found = True
+            # Drop old block-scalar / folded continuation lines under this key.
+            skip_block = True
         else:
             new_lines.append(line)
     if not found:
