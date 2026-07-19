@@ -51,6 +51,7 @@ tests/skill_engine/*
 !tests/skill_engine/test_evolver_length_recovery.py
 !tests/skill_engine/test_evolution_retry_idempotency.py
 !tests/skill_engine/test_analyzer_length_recovery.py
+!tests/skill_engine/test_get_frontmatter_block_scalar.py
 !tests/skill_engine/decision/
 tests/skill_engine/decision/*
 !tests/skill_engine/decision/test_analysis_adapter.py
