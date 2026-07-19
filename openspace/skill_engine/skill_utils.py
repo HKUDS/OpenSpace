@@ -77,7 +77,12 @@ def _yaml_unquote(value: str) -> str:
            (value[0] == "'" and value[-1] == "'"):
             inner = value[1:-1]
             if value[0] == '"':
-                inner = inner.replace('\\"', '"').replace("\\\\", "\\")
+                inner = (
+                    inner.replace("\\\\", "\0")
+                    .replace('\\"', '"')
+                    .replace("\\n", "\n")
+                    .replace("\0", "\\")
+                )
             return inner
     return value
 
