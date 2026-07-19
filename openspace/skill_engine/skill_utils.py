@@ -113,15 +113,30 @@ def get_frontmatter_field(content: str, field_name: str) -> Optional[str]:
     """Extract a single field value from YAML frontmatter.
 
     Returns ``None`` if the field is absent or content has no frontmatter.
-    Uses :func:`parse_frontmatter` so block scalars (``|`` / ``>``) round-trip.
+    Block scalars (``|`` / ``>``) include following indented lines.
     """
-    fm = parse_frontmatter(content)
-    if field_name not in fm:
+    if not content.startswith("---"):
         return None
-    value = fm[field_name]
-    if value is None:
+    match = _FRONTMATTER_RE.match(content)
+    if not match:
         return None
-    return value if isinstance(value, str) else str(value)
+    lines = match.group(1).split("\n")
+    for i, line in enumerate(lines):
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        if key.strip() != field_name:
+            continue
+        rest = value.strip()
+        if re.fullmatch(r"[|>][+-]?", rest):
+            collected: List[str] = []
+            j = i + 1
+            while j < len(lines) and lines[j].startswith((" ", "\t")):
+                collected.append(re.sub(r"^[ \t]+", "", lines[j], count=1))
+                j += 1
+            return "\n".join(collected)
+        return _yaml_unquote(rest)
+    return None
 
 
 def set_frontmatter_field(content: str, field_name: str, value: str) -> str:
