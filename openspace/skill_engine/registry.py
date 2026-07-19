@@ -1888,13 +1888,13 @@ IMPORTANT: Use the **exact skill_id** from the list above."""
         if code_block:
             content = code_block.group(1).strip()
         else:
-            # Try to find a raw JSON object
-            json_match = re.search(r"\{.*\}", content, re.DOTALL)
-            if json_match:
-                content = json_match.group()
+            # Prefer the first object start; raw_decode ignores trailing prose.
+            brace = content.find("{")
+            if brace >= 0:
+                content = content[brace:]
 
         try:
-            data = json.loads(content)
+            data, _ = json.JSONDecoder().raw_decode(content)
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse LLM skill selection JSON: {content[:200]}")
             return [], ""
