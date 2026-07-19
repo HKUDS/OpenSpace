@@ -11,6 +11,15 @@ def test_normalize_frontmatter_bool_and_int_scalars() -> None:
     assert "enabled: true" in out
     assert "version: 2" in out
     assert "# body" in out
+    assert "..." not in out
+
+
+def test_normalize_frontmatter_date_scalar_no_document_end() -> None:
+    raw = "---\nname: demo\ncreated: 2024-01-01\nenabled: true\n---\n"
+    out = normalize_frontmatter(raw)
+    assert "created: 2024-01-01" in out
+    assert "..." not in out
+    assert "enabled: true" in out
 
 
 def test_normalize_frontmatter_string_still_quoted_when_needed() -> None:
