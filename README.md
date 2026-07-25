@@ -6,7 +6,7 @@
 
 ## OpenSpace: The Skill Management Layer for AI Agents
 
-**Your Skills Keep Growing. OpenSpace Helps You Retrieve the Right Ones, Evaluate What Works, and Evolve Them with Every Run.**
+**Your Skills Keep Growing. OpenSpace Helps You Retrieve, Evaluate, and Evolve with Every Run**
 
 [![Agents](https://img.shields.io/badge/Agents-Claude_Code%20%7C%20Codex%20%7C%20OpenClaw%20%7C%20...-99C9BF.svg)](https://modelcontextprotocol.io/)
 [![Python](https://img.shields.io/badge/Python-3.12+-FCE7D6.svg)](https://www.python.org/)
