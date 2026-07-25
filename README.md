@@ -230,6 +230,7 @@ With the same frozen Hy3 backbone, OpenSpace improves from a 65.2% Cold run to a
 ## 📋 Table of Contents
 
 - [⚡ Quick Start](#-quick-start)
+  - [🚀 OpenSpace（新手向）分析稿](./docs/analysis/openspace.md)
   - [🤖 Path A: For Your Agent](#-path-a-for-your-agent)
   - [👤 Path B: Command Line](#-path-b-command-line)
   - [📊 Local Dashboard](#-local-dashboard)
