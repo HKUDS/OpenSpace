@@ -1,59 +1,51 @@
-# OpenSpace（子代理C速读）
+# OpenSpace（子代理C）初学者速读
 
-## 一句话目标
-OpenSpace 是给 AI Agent 用的“技能仓库+训练场”：它不只让 Agent 记住技能（Skill），更要让 Agent 记住哪些技能在真实任务里真的有效。
+## 1）这个仓库是做什么的（一句话版）
 
-## 核心模块（怎么理解）
-- `openspace/application.py`：对外入口。
-  - 你调用 OpenSpace 时，先经过这里，像门面一样把配置和运行参数整理好。
-- `openspace/runtime/`：任务运行核心。
-  - 负责会话、状态、执行生命周期，保证 CLI、MCP、Dashboard 共用一套执行逻辑。
-- `openspace/skill_engine/`：技能记忆与进化脑。
-  - `registry.py`：建技能目录，发现本地和云端技能。
-  - `analyzer.py`：任务后分析，判断技能是否起效。
-  - `evolver.py`：生成 FIX / DERIVED / CAPTURED 版本。
-  - `store.py`：把技能版本、谱系、质量分数持久化。
-  - `skill_ranker.py`：按质量+匹配度给技能排序。
-- `openspace/grounding/`：能力执行层。
-  - 统一不同后端（shell、gui、mcp、web、meta）执行工具。
-- `openspace/agents/`：Agent 主体。
-  - 负责与大模型协作、工具调度和任务循环。
-- `openspace/cloud/`：技能社区连接层。
-  - 上传、下载、搜索公开/私有技能，做质量证据上链。
-- `openspace/communication/`：多渠道对接。
-  - 支持 WhatsApp、Feishu 等消息入口。
-- `openspace/recording/` 与 `openspace/persistence/`：证据仓库。
-  - 记录执行日志、截图、对话、指标，用于质量判断。
-- `apps/`：可视化界面。
-  - Dashboard 和 TUI，把“哪些技能在变好/变差”展示给人看。
+OpenSpace 是一个给 AI Agent 用的技能中心（Skill Hub）。
+它的目标不是“加更多技能”，而是让 Agent 在真实任务里形成一个循环：
+先执行 → 记录结果 → 判断技能可靠性 → 只保留和复用值得信任的技能。
 
-## 给第一次看的人（超简版）
-想象你有一个助理（AI Agent），平时它会不断尝试很多“操作小剧本”（Skill）。
+你可以把它理解成：
 
-OpenSpace 的作用：
-1. 让助理先选对剧本。
-2. 把每次执行结果都记录下来：是成功、失败还是临时放弃。
-3. 把这些记录变成“质量信号”，给更可靠的技能更高优先级。
-4. 允许自动改进，但用“先试用后验证再信任”的方式，避免乱改。
-5. 最后把能用得更好、来源更清楚的技能，按包（package）共享出去。
+- 一个让 Skill 能够被**发现**的仓库（本地 + 云端）
+- 一个把每次执行都变成**证据**的记录系统
+- 一个在证据基础上自动改进 Skill 的进化系统
 
-你可以把它想成：
-- 一个会“记账”的技能库（有证据）
-- 一个会“练习”的进化系统（按结果改进）
-- 一个“本地执行、云端发现”的协作平台
+## 2）关键模块（按“怎么先看懂它”来分）
 
-## 一个使用流程（从 0 到 1）
-- 你发任务
-- Agent 从本地/云端找到候选 Skill
-- 选中一个 Skill 去执行（可能调用 shell、MCP、浏览器等）
-- 执行结束后写入证据记录
-- 记录决定该 Skill 是否值得继续重用
-- 触发演化时，产生新版本并做验证
-- 通过质量和审核规则后，推送到更高信任状态
+- `openspace/application.py` + `openspace/runtime/`
+  - OpenSpace 的主入口和运行核心。
+  - 负责把任务、状态、会话、配置串起来，CLI / MCP / Dashboard 共用同一套执行逻辑。
+- `openspace/skill_engine/`
+  - 技能引擎，负责 Skill 的发现、排序、执行后评估、进化和版本记录。
+  - 你会看到 `analyzer.py`、`evolver.py`、`store.py`、`skill_ranker.py` 这些核心文件。
+- `openspace/grounding/`
+  - 工具执行层，连接不同后端能力（Shell、Web、MCP、GUI 等），用于真正“做事”。
+- `openspace/agents/` 和 `openspace/tool_runtime/`
+  - Agent 的决策与工具调用运行时，决定什么时候用哪个技能、怎么调用工具。
+- `openspace/cloud/`
+  - 与云端技能社区连接：搜索、下载、上传技能，处理账号和访问权限。
+- `openspace/communication/`
+  - 消息网关能力，面向多渠道（例如 WhatsApp、Feishu）执行任务入口。
+- `openspace/recording/` + `openspace/telemetry/` + `openspace/persistence/`
+  - 负责把执行过程、质量指标、日志、录像等写入“证据库”，后续用于决策和回放。
+- `openspace/cli/`、`openspace/entrypoints/`、`apps/`
+  - 用户如何使用 OpenSpace 的入口层：命令行、MCP 服务、Dashboard、TUI、Gateway 等。
 
-## 我最先看的入口（建议）
-- 先读：
-  - `README.md` 的 “Quick Start”和“Framework”
-  - `README.md` 的 “Code Structure” 代码树
-  - `openspace/host_skills/README.md`（想让 Agent 接入 MCP 时）
-  - 本文档：`docs/analysis/openspace.md`
+## 3）新手友好执行流程（先懂这条线）
+
+1. 你给 Agent 一个任务。
+2. OpenSpace 从本地/云端找候选 Skill。
+3. 通过 skill_engine + grounding 执行任务。
+4. 任务结束后写入执行记录（成功/失败/回退）。
+5. 根据记录更新技能质量分。
+6. 对低质量技能提出改进候选（FIX / DERIVED / CAPTURED）。
+7. 经验证与确认后进入更高可信状态，再供后续任务复用。
+
+## 4）我建议先读的地方（按优先级）
+
+1. `README.md` 的 `Framework` 和 `Code Structure`（中文可先读 `README_zh.md`）
+2. `openspace/host_skills/README.md`（想接入 Agent 时）
+3. `openspace/skill_engine/README.md`（如果有的话）
+4. 本文档：`docs/analysis/openspace.md`
