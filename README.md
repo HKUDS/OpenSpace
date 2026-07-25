@@ -4,7 +4,7 @@
     <img src="assets/logo_v2.png" width="280px" style="border: none; box-shadow: none;" alt="OpenSpace Logo">
 </picture>
 
-## OpenSpace: The Quality-First Skill Hub for AI Agents
+## OpenSpace: The Skill Management Layer for AI Agents
 
 | 📊 **Real-Task Validated** | 🌐 **Hierarchical Skill Hub** | 🧬 **Evidence-Driven Evolution** | 🛠️ **End2End Quality Records** |
 
