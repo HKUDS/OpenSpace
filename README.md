@@ -16,7 +16,7 @@
 [![中文文档](https://img.shields.io/badge/文档-中文版-F5C6C6?style=flat)](./README_zh.md)
 [![v1 README](https://img.shields.io/badge/v1-README-EDEDED?style=flat)](https://github.com/HKUDS/OpenSpace/blob/v1/README.md)
 
-**Your Universal Skill Hub for All AI Agents** — Claude Code, Codex, OpenClaw, Hermès, nanobot.
+**One Skill Management Layer to Power Them All** — Claude Code, Codex, OpenClaw, Hermès, nanobot.
 
 <img src="assets/cli-typing.gif" width="500px" alt="openspace --query your task">
 
