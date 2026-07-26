@@ -25,7 +25,12 @@
 ---
 
 ## Why OpenSpace?
-Can your agent find the right skill, know what actually works, and avoid repeating the same mistakes? Can your team turn every successful task into reusable knowledge?
+As your agent’s skill grows, can your agents:
+- 🔍 Find the right skill at the right time?
+- ✅ Know which skills actually work in real-world tasks?
+- 🧠 Learn from failures instead of repeating the same mistakes?
+- 🤝 Share successful workflows across agents and team members?
+- 📚 Turn every completed task into reusable knowledge for the future?
 
 OpenSpace manages the full lifecycle of your agent skills:
 - 🔍 **Retrieve** — Find the right skill for every task.
