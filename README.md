@@ -25,7 +25,15 @@
 ---
 
 ## Why OpenSpace?
-Your agent can already run tasks. But can it remember which skills worked? Can it stop repeating the same mistakes? Can your team share what it learned?
+Can your agent find the right skill, know what actually works, and avoid repeating the same mistakes? Can your team turn every successful task into reusable knowledge?
+
+OpenSpace manages the full lifecycle of your agent skills:
+- 🔍 **Retrieve** — Find the right skill for every task.
+- ✅ **Evaluate** — Know what works through real outcomes.
+- 🤝 **Share** — Turn successful workflows into team knowledge.
+- 🔄 **Evolve** — Improve skills with every run.
+
+The right skill for every task. Proven by real outcomes. Improved with every run.
 
 <table>
   <tr>
