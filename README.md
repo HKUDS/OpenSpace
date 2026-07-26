@@ -140,7 +140,9 @@ When an AI agent performs poorly, the problem is not always the model. Sometimes
 - 🧩 Apply it to the right task
 - ✅ Choose the version that actually works
 
-This problem becomes more serious as your skill library grows. With hundreds or thousands of skills, more choices can make the right skill harder to find.
+This problem becomes more serious as your skill library grows. 
+
+With hundreds or thousands of skills, more choices can make the right skill harder to find.
 
 Today’s agents can use skills—but they still struggle to manage them:
 - ❌ Poor retrieval — The right skill exists, but the agent fails to find it.
