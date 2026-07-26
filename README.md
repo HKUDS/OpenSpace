@@ -32,7 +32,7 @@ As your agent’s skill grows, can your agents:
 - 🤝 Share successful workflows across agents and team members?
 - 📚 Turn every completed task into reusable knowledge for the future?
 
-OpenSpace manages the full lifecycle of your agent skills:
+**OpenSpace** manages the full lifecycle of your agent skills:
 - 🔍 **Retrieve** — Find the right skill for every task.
 - ✅ **Evaluate** — Know what works through real outcomes.
 - 🤝 **Share** — Turn successful workflows into team knowledge.
@@ -66,7 +66,7 @@ The right skill for every task. Proven by real outcomes. Improved with every run
 
 ## 📢 News
 
-- **2026-07-17** 🚀 **OpenSpace v2 is released**: v2 turns OpenSpace into a quality-first Skill Hub with package-based skill browsing, skill quality summaries, task-trace uploads, and a refreshed dashboard / TUI experience.
+- **2026-07-17** 🚀 **OpenSpace v2 is released**: Introducing the Skill Management Layer for AI Agents, with package-based browsing, quality summaries, task-trace uploads, and a refreshed dashboard and TUI.
 
 <details>
 <summary>Earlier news</summary>
@@ -133,19 +133,22 @@ The right skill for every task. Proven by real outcomes. Improved with every run
 
 ---
 
-## The Problem with Today's AI Agents
+## The Skill Management Problem
 
-Today's AI agents — OpenClaw, nanobot, Claude Code, Codex, Cursor, and more — are remarkably capable. But beneath the surface, they share a critical blind spot: none of them know which skills actually hold up in the real world.
+When an AI agent performs poorly, the problem is not always the model. Sometimes, it simply fails to:
+- 🔍 Retrieve the right skill
+- 🧩 Apply it to the right task
+- ✅ Choose the version that actually works
 
-Think of it like a recipe book that keeps growing — but nobody has ever cooked from it, so no one knows which recipes actually taste good.
+This problem becomes more serious as your skill library grows. With hundreds or thousands of skills, more choices can make the right skill harder to find.
 
-- **❌ Skills accumulate without quality signals** — The more you use an agent, the more skills pile up. But there is no way to tell a skill that reliably delivers from one that quietly fails. They all sit in the same folder, looking equally trustworthy.
-
-- **❌ Agents keep repeating the same mistakes** — Once a skill gets picked, the agent keeps reaching for it — even after it starts failing. Without a feedback loop, the agent has no way to learn from bad outcomes. It just tries again.
-
-- **❌ Updating skills is a guessing game** — Change too much and you break things that were working. Change too little and the agent falls behind. There is no principled way to know what to improve, when, or why.
-
-- **❌ Sharing a skill means asking for blind trust** — A skill shared online may look polished. But where did it come from? Has it changed? Has anyone actually finished a real task with it? Today, there is no easy way to know.
+Today’s agents can use skills—but they still struggle to manage them:
+- ❌ Poor retrieval — The right skill exists, but the agent fails to find it.
+- ❌ Unclear quality — Reliable and ineffective skills look equally trustworthy.
+- ❌ Repeated mistakes — Failed skills keep being selected without a feedback loop.
+- ❌ Outdated knowledge — Skills fall behind as tools and workflows change.
+- ❌ Blind sharing — Skills are shared without evidence, history, or proven results.
+Agents don’t just need more skills. They need to retrieve, evaluate, manage, and evolve them.
 
 ## 🎯 What is OpenSpace?
 
