@@ -148,6 +148,7 @@ Today’s agents can use skills—but they still struggle to manage them:
 - ❌ Repeated mistakes — Failed skills keep being selected without a feedback loop.
 - ❌ Outdated knowledge — Skills fall behind as tools and workflows change.
 - ❌ Blind sharing — Skills are shared without evidence, history, or proven results.
+
 Agents don’t just need more skills. They need to retrieve, evaluate, manage, and evolve them.
 
 ## 🎯 What is OpenSpace?
