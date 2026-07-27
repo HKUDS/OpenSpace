@@ -48,19 +48,23 @@ The right skill for every task. Proven by real outcomes. Improved with every run
   </tr>
   <tr>
     <td width="33.33%" valign="top">
-      <p align="center"><strong>🌐 One Skill Hub for every agent</strong></p>
-      <p>Whether you run OpenClaw, nanobot, Claude Code, Codex, or Cursor, OpenSpace gives all of them a shared place to browse, import, and reuse skills. Stop rebuilding the same experience from scratch in every tool.</p>
+      <p align="center"><strong>🌐 One Skill Library Across All Your Agents</strong></p>
+      <p>Your agents can retrieve, import, and reuse skills from one shared library—without rebuilding the same capabilities for every tool.</p>
     </td>
     <td width="33.33%" valign="top">
-      <p align="center"><strong>🔒 A private skill platform your org actually owns</strong></p>
-      <p>Deploy OpenSpace inside your own infrastructure. Your workflows stay internal, your data never leaves, and every skill your agents learn becomes a compounding asset — not a black box on someone else's server.</p>
+      <p align="center"><strong>🔒 Your Skills, Your Data, Your Infrastructure</strong></p>
+      <p>Deploy OpenSpace within your own environment and keep complete control of your workflows and data.
+Turn what your agents and teams learn into private, reusable skill assets that continue to grow in value.</p>
     </td>
     <td width="33.33%" valign="top">
-      <p align="center"><strong>📈 Agents that get better with every run</strong></p>
-      <p>OpenSpace tracks real task outcomes to evolve skills that work, retire ones that do not, and distill experience into leaner, sharper prompts — so your agent improves over time and spends fewer tokens getting there.</p>
+      <p align="center"><strong>📈 Self-Evolving Skills, Proven by Real Outcomes</strong></p>
+      <p>OpenSpace learns from what happens in real tasks—not just what a skill claims to do.
+Reuse skills that work, improve skills that fall short, and retire those that no longer deliver. Every run becomes evidence, and every lesson makes future runs better.</p>
     </td>
   </tr>
 </table>
+
+**One place to retrieve, evaluate, share, and evolve skills across all your agents.**
 
 ---
 
