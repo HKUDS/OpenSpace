@@ -53,13 +53,11 @@ The right skill for every task. Proven by real outcomes. Improved with every run
     </td>
     <td width="33.33%" valign="top">
       <p align="center"><strong>🔒 Your Skills, Your Data, Your Infrastructure</strong></p>
-      <p>Deploy OpenSpace within your own environment and keep complete control of your workflows and data.
-Turn what your agents and teams learn into private, reusable skill assets that continue to grow in value.</p>
+      <p>Deploy OpenSpace privately and keep your workflows, data, and reusable skill assets under your control.</p>
     </td>
     <td width="33.33%" valign="top">
       <p align="center"><strong>📈 Self-Evolving Skills, Proven by Real Outcomes</strong></p>
-      <p>OpenSpace learns from what happens in real tasks—not just what a skill claims to do.
-Reuse skills that work, improve skills that fall short, and retire those that no longer deliver. Every run becomes evidence, and every lesson makes future runs better.</p>
+      <p>Use real task outcomes to keep what works, improve what falls short, and retire what no longer delivers.</p>
     </td>
   </tr>
 </table>
