@@ -53,11 +53,11 @@ The right skill for every task. Proven by real outcomes. Improved with every run
     </td>
     <td width="33.33%" valign="top">
       <p align="center"><strong>🔒 Your Skills, Your Data, Your Infrastructure</strong></p>
-      <p>Deploy OpenSpace privately and keep your workflows, data, and reusable skill assets under your control.</p>
+      <p>Deploy OpenSpace privately and keep your workflows, data, and reusable skill assets fully under your own control.</p>
     </td>
     <td width="33.33%" valign="top">
       <p align="center"><strong>📈 Self-Evolving Skills, Proven by Real Outcomes</strong></p>
-      <p>Use real task outcomes to keep what works, improve what falls short, and retire what no longer delivers.</p>
+      <p>Use real task outcomes to keep what works, improve what falls short, and confidently retire what no longer delivers value.</p>
     </td>
   </tr>
 </table>
