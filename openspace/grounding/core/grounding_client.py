@@ -145,7 +145,7 @@ class GroundingClient:
 
             from .quality import ToolQualityManager, set_quality_manager
             from pathlib import Path
-            from openspace.config.constants import PROJECT_ROOT
+            from openspace.config.constants import get_default_db_path
 
             # Shared DB path
             db_path = getattr(quality_config, 'db_path', None)
@@ -153,9 +153,7 @@ class GroundingClient:
                 db_path = Path(db_path)
             else:
                 # Default: same location as SkillStore
-                db_dir = PROJECT_ROOT / ".openspace"
-                db_dir.mkdir(parents=True, exist_ok=True)
-                db_path = db_dir / "openspace.db"
+                db_path = get_default_db_path(create=True)
 
             manager = ToolQualityManager(
                 db_path=db_path,

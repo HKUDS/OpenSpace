@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generator, Iterable
 
-from openspace.config.constants import PROJECT_ROOT
+from openspace.config.constants import get_default_db_path
 from openspace.cloud.redaction import redact_telemetry_payload
 
 _DDL = """
@@ -52,9 +52,7 @@ class CloudTelemetryOutbox:
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         if db_path is None:
-            db_dir = PROJECT_ROOT / ".openspace"
-            db_dir.mkdir(parents=True, exist_ok=True)
-            db_path = db_dir / "openspace.db"
+            db_path = get_default_db_path(create=True)
         self._db_path = Path(db_path)
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._mu = threading.Lock()

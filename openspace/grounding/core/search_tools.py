@@ -15,7 +15,7 @@ from .tool import BaseTool
 from .types import BackendType
 from .tool_discovery import rank_tools_by_keyword
 from openspace.utils.logging import Logger
-from openspace.config.constants import PROJECT_ROOT
+from openspace.config.constants import get_cache_dir
 
 if TYPE_CHECKING:
     from .quality import ToolQualityManager
@@ -89,7 +89,7 @@ class ToolRanker:
         # Persistent cache settings
         self._enable_cache_persistence = enable_cache_persistence
         if cache_dir is None:
-            cache_dir = PROJECT_ROOT / ".openspace" / "embedding_cache"
+            cache_dir = get_cache_dir("embedding_cache", create=False)
         self._cache_dir = Path(cache_dir)
         
         # Log cache settings

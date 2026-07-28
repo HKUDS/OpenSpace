@@ -37,7 +37,7 @@ from .types import (
     SkillVisibility,
 )
 from openspace.utils.logging import Logger
-from openspace.config.constants import PROJECT_ROOT
+from openspace.config.constants import get_default_db_path
 from openspace.grounding.core.permissions.types import parse_rule_value
 
 logger = Logger.get_logger(__name__)
@@ -453,9 +453,7 @@ class SkillStore:
         trust_promotion_min_independent_successes: int = 2,
     ) -> None:
         if db_path is None:
-            db_dir = PROJECT_ROOT / ".openspace"
-            db_dir.mkdir(parents=True, exist_ok=True)
-            db_path = db_dir / "openspace.db"
+            db_path = get_default_db_path(create=True)
 
         self._db_path = Path(db_path).expanduser()
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
