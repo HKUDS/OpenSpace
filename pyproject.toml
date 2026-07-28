@@ -30,6 +30,7 @@ dependencies = [
     "aiohttp>=3.10.0",
     "requests>=2.32.0",
     "websockets>=13.0",
+    "PyYAML>=6.0.0",
 ]
 
 [project.optional-dependencies]

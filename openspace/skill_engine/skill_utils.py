@@ -20,8 +20,50 @@ logger = Logger.get_logger(__name__)
 
 SKILL_FILENAME = "SKILL.md"
 
+# High-confidence rules produce ``blocked.*`` flags and reject the skill.
+# Broad heuristic rules produce ``suspicious.*`` flags for logging/search only.
 _SAFETY_RULES = [
-    ("blocked.malware",         re.compile(r"(ClawdAuthenticatorTool)", re.IGNORECASE)),
+    (
+        "blocked.malware",
+        re.compile(
+            r"(ClawdAuthenticatorTool|Steal(?:er)?Token|keylogger\.exe|"
+            r"mimikatz|cobalt\s*strike)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "blocked.script",
+        re.compile(
+            r"((?:curl|wget)\s+[^\n|]*\|\s*(?:ba)?sh|"
+            r"powershell[^\n;-]*-(?:enc|encodedcommand)\s+)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "blocked.prompt_injection",
+        re.compile(
+            r"(ignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions|"
+            r"disregard\s+(?:your|the)\s+system\s+prompt|"
+            r"you\s+are\s+now\s+DAN\b|"
+            r"override\s+(?:your|the)\s+safety\s+(?:rules|policy|guidelines))",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "blocked.exfil",
+        re.compile(
+            r"("
+            r"(?:api[-_ ]?key|password|passwd|private[-_ ]?key|secret|token)"
+            r".{0,120}"
+            r"(?:curl\b|wget\b|webhook|discord(?:\.com|\.gg)|hooks\.slack)"
+            r"|"
+            r"(?:curl\b|wget\b|webhook|discord(?:\.com|\.gg)|hooks\.slack)"
+            r".{0,120}"
+            r"(?:api[-_ ]?key|password|passwd|private[-_ ]?key|secret|token)"
+            r")",
+            re.IGNORECASE | re.DOTALL,
+        ),
+    ),
     ("suspicious.keyword",      re.compile(r"(malware|stealer|phish|phishing|keylogger)", re.IGNORECASE)),
     ("suspicious.secrets",      re.compile(r"(api[-_ ]?key|token|password|private key|secret)", re.IGNORECASE)),
     ("suspicious.crypto",       re.compile(r"(wallet|seed phrase|mnemonic|crypto)", re.IGNORECASE)),
@@ -30,7 +72,12 @@ _SAFETY_RULES = [
     ("suspicious.url_shortener", re.compile(r"(bit\.ly|tinyurl\.com|t\.co|goo\.gl|is\.gd)", re.IGNORECASE)),
 ]
 
-_BLOCKING_FLAGS = frozenset({"blocked.malware"})
+_BLOCKING_FLAGS = frozenset({
+    "blocked.malware",
+    "blocked.script",
+    "blocked.prompt_injection",
+    "blocked.exfil",
+})
 
 
 def check_skill_safety(text: str) -> List[str]:
@@ -45,7 +92,8 @@ def is_skill_safe(flags: List[str]) -> bool:
     """Return True if *flags* contain no blocking flag.
 
     ``suspicious.*`` flags are informational (logged / attached to search
-    results) but do NOT block.  Only ``blocked.*`` flags cause rejection.
+    results) but do NOT block.  ``blocked.*`` flags cause rejection so the
+    README claim that dangerous skills are blocked stays accurate.
     """
     return not any(f in _BLOCKING_FLAGS for f in flags)
 
@@ -79,9 +127,9 @@ def _yaml_unquote(value: str) -> str:
 def parse_frontmatter(content: str) -> Dict[str, Any]:
     """Parse YAML frontmatter into a dict.
 
-    Uses PyYAML when available so OpenSpace nested fields such as ``hooks``
-    keep their structure. Falls back to the historical flat parser when
-    PyYAML is unavailable or the document is malformed.
+    Uses PyYAML (a hard dependency) so nested fields such as ``hooks`` keep
+    their structure. Falls back to the historical flat parser only when the
+    document is malformed YAML.
     Returns ``{}`` if no valid frontmatter is found.
     """
     if not content.startswith("---"):

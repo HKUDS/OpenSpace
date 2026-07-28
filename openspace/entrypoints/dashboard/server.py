@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import os
 import re
@@ -32,6 +33,7 @@ API_PREFIX = "/api/v1"
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST_DIR = PROJECT_ROOT / "apps" / "dashboard" / "dist"
 PACKAGED_DASHBOARD_STATIC_DIR = PACKAGE_ROOT / "packaged" / "dashboard"
+DASHBOARD_TOKEN_ENV = "OPENSPACE_DASHBOARD_TOKEN"
 WORKFLOW_ROOTS = [
     PROJECT_ROOT / "logs" / "recordings",
     PROJECT_ROOT / "logs" / "trajectories",
@@ -73,6 +75,22 @@ PIPELINE_STAGES = [
 ]
 
 
+def _is_loopback_host(host: str | None) -> bool:
+    normalized = (host or "").strip().lower()
+    return normalized in {"127.0.0.1", "localhost", "::1"}
+
+
+def _configured_dashboard_token() -> str:
+    return os.environ.get(DASHBOARD_TOKEN_ENV, "").strip()
+
+
+def _request_dashboard_token() -> str:
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[len("Bearer "):].strip()
+    return request.headers.get("X-OpenSpace-Dashboard-Token", "").strip()
+
+
 def create_app(
     *,
     store: SkillStore | None = None,
@@ -80,8 +98,10 @@ def create_app(
     evidence_store: EvidenceStore | None = None,
     evidence_db_path: str | Path | None = None,
     evolution_storage_root: str | Path | None = None,
+    bind_host: str = "127.0.0.1",
 ) -> Flask:
     app = Flask(__name__, static_folder=None)
+    app.config["OPENSPACE_BIND_HOST"] = bind_host
     resolved_skill_db_path = _resolve_skill_store_db_path(
         db_path=db_path,
         evolution_storage_root=evolution_storage_root,
@@ -113,6 +133,38 @@ def create_app(
 
     def get_audit() -> EvolutionAuditService:
         return audit_service
+
+    @app.before_request
+    def enforce_dashboard_auth():
+        """Require a bearer token for API access when bound outside loopback.
+
+        Static frontend assets remain reachable so the SPA can load; the API
+        (skills, evidence, workflows) is what must not be exposed anonymously.
+        """
+        if not request.path.startswith(API_PREFIX):
+            return None
+
+        token = _configured_dashboard_token()
+        configured_host = app.config.get("OPENSPACE_BIND_HOST", "127.0.0.1")
+        if _is_loopback_host(configured_host) and not token:
+            return None
+
+        if not token:
+            return jsonify({
+                "status": "error",
+                "message": (
+                    f"{DASHBOARD_TOKEN_ENV} is required when the dashboard "
+                    "API is bound outside loopback."
+                ),
+            }), 403
+
+        if hmac.compare_digest(_request_dashboard_token(), token):
+            return None
+
+        return jsonify({
+            "status": "error",
+            "message": "Missing or invalid dashboard bearer token.",
+        }), 401
 
     @app.route(f"{API_PREFIX}/health", methods=["GET"])
     def health() -> Any:
@@ -1978,10 +2030,17 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")
     args = parser.parse_args()
 
+    if not _is_loopback_host(args.host) and not _configured_dashboard_token():
+        raise SystemExit(
+            f"{DASHBOARD_TOKEN_ENV} must be set when binding the dashboard "
+            f"to non-loopback host {args.host!r}."
+        )
+
     app = create_app(
         db_path=args.db_path,
         evidence_db_path=args.evidence_db_path,
         evolution_storage_root=args.evolution_storage_root,
+        bind_host=args.host,
     )
 
     from werkzeug.serving import run_simple
