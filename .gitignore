@@ -68,7 +68,12 @@ tests/entrypoints/*
 !tests/entrypoints/dashboard/
 tests/entrypoints/dashboard/*
 !tests/entrypoints/dashboard/test_dashboard_auth.py
-scripts/
+!tests/packaging/
+tests/packaging/*
+!tests/packaging/test_copy_dist_to_packaged.mjs
+scripts/*
+!scripts/
+!scripts/copy-dist-to-packaged.mjs
 
 # Local agent/project memory
 OPENSPACE.md
