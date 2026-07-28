@@ -94,6 +94,40 @@ def get_log_dir(*, create: bool = True) -> Path:
     return path
 
 
+def get_workflow_roots() -> list[Path]:
+    """Directories the dashboard should scan for workflow/run artifacts.
+
+    Always includes writable data-home log paths. When running from a source
+    checkout, also includes the historical repo-relative roots so local
+    development keeps finding existing recordings and benchmark runs.
+    """
+    data_logs = get_log_dir(create=False)
+    roots: list[Path] = [
+        data_logs / "recordings",
+        data_logs / "trajectories",
+    ]
+    if is_source_checkout():
+        roots.extend(
+            [
+                PROJECT_ROOT / "logs" / "recordings",
+                PROJECT_ROOT / "logs" / "trajectories",
+                PROJECT_ROOT / "benchmarks" / "gdpval" / "results",
+                PROJECT_ROOT / "benchmarks" / "terminal_bench" / "runs",
+            ]
+        )
+
+    # Preserve order while dropping duplicates (same path via symlink/resolve).
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for root in roots:
+        key = root.resolve() if root.exists() else root
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(root)
+    return unique
+
+
 __all__ = [
     "CONFIG_GROUNDING",
     "CONFIG_SECURITY",
@@ -108,4 +142,5 @@ __all__ = [
     "get_default_db_path",
     "get_cache_dir",
     "get_log_dir",
+    "get_workflow_roots",
 ]

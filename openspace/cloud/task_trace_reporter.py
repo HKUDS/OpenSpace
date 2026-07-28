@@ -18,7 +18,7 @@ from openspace.cloud.telemetry_payloads import (
     build_usage_report_payload,
     short_cloud_request_id,
 )
-from openspace.config.constants import PROJECT_ROOT, get_data_home
+from openspace.config.constants import get_data_home
 
 
 class CloudTaskTraceReporter:
@@ -39,7 +39,12 @@ class CloudTaskTraceReporter:
         self._artifact_dir = Path(
             artifact_dir or get_data_home(create=True) / "cloud-task-traces"
         )
-        self._workspace_root = Path(workspace_root).resolve() if workspace_root else PROJECT_ROOT
+        if workspace_root is not None:
+            self._workspace_root = Path(workspace_root).resolve()
+        elif Path.cwd().exists():
+            self._workspace_root = Path.cwd().resolve()
+        else:
+            self._workspace_root = get_data_home(create=False)
 
     async def maybe_report_execution(
         self,

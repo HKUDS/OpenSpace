@@ -122,3 +122,34 @@ def test_package_version_matches_pyproject() -> None:
     match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
     assert match is not None
     assert openspace.__version__ == match.group(1)
+
+
+def test_get_workflow_roots_include_data_home_logs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OPENSPACE_HOME", str(tmp_path / "data"))
+    monkeypatch.delenv("OPENSPACE_DATA_DIR", raising=False)
+    monkeypatch.setattr(constants, "is_source_checkout", lambda root=None: False)
+
+    roots = constants.get_workflow_roots()
+    data_home = (tmp_path / "data").resolve()
+    assert data_home / "logs" / "recordings" in [p.resolve() for p in roots]
+    assert data_home / "logs" / "trajectories" in [p.resolve() for p in roots]
+    assert not any("benchmarks" in str(p) for p in roots)
+
+
+def test_get_workflow_roots_include_repo_paths_in_checkout(
+    tmp_path: Path, monkeypatch
+) -> None:
+    (tmp_path / "pyproject.toml").write_text('[project]\nname="openspace"\n', encoding="utf-8")
+    pkg = tmp_path / "openspace"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    monkeypatch.setenv("OPENSPACE_HOME", str(tmp_path / "data"))
+    monkeypatch.delenv("OPENSPACE_DATA_DIR", raising=False)
+    monkeypatch.setattr(constants, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(constants, "is_source_checkout", lambda root=None: True)
+
+    roots = [str(p) for p in constants.get_workflow_roots()]
+    assert any(str(tmp_path / "benchmarks" / "gdpval" / "results") == r for r in roots)
+    assert any("recordings" in r for r in roots)
