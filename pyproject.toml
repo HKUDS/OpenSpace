@@ -14,7 +14,7 @@ authors = [
 ]
 
 dependencies = [
-    "litellm>=1.70.0,<1.82.7",  # pinned to avoid PYSEC-2026-2 supply-chain compromise (1.82.7/1.82.8 were malicious)
+    "litellm>=1.83.7,<2.0.0",  # CVE-2026-42271 fixed in 1.83.7; also excludes PYSEC-2026-2 malicious 1.82.7/1.82.8
     "python-dotenv>=1.0.0",
     "openai>=1.0.0",
     "jsonschema>=4.25.0",
