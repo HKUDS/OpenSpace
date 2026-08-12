@@ -18,9 +18,9 @@
 
 **One Skill Management Layer to Power Them All** — Claude Code, Codex, OpenClaw, Hermès, nanobot.
 
-<img src="assets/cli-typing.gif" width="500px" alt="openspace --query your task">
-
 <a href="https://trendshift.io/repositories/24064?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-24064" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/24064" alt="HKUDS%2FOpenSpace | Trendshift" width="250" height="55"/></a>
+
+<img src="assets/cli-typing.gif" width="500px" alt="openspace --query your task">
 
 </div>
 
