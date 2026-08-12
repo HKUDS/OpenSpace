@@ -113,17 +113,29 @@ def get_frontmatter_field(content: str, field_name: str) -> Optional[str]:
     """Extract a single field value from YAML frontmatter.
 
     Returns ``None`` if the field is absent or content has no frontmatter.
+    Block scalars (``|`` / ``>``) include following indented lines.
     """
     if not content.startswith("---"):
         return None
     match = _FRONTMATTER_RE.match(content)
     if not match:
         return None
-    for line in match.group(1).split("\n"):
-        if ":" in line:
-            key, value = line.split(":", 1)
-            if key.strip() == field_name:
-                return _yaml_unquote(value.strip())
+    lines = match.group(1).split("\n")
+    for i, line in enumerate(lines):
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        if key.strip() != field_name:
+            continue
+        rest = value.strip()
+        if re.fullmatch(r"[|>][+-]?", rest):
+            collected: List[str] = []
+            j = i + 1
+            while j < len(lines) and lines[j].startswith((" ", "\t")):
+                collected.append(re.sub(r"^[ \t]+", "", lines[j], count=1))
+                j += 1
+            return "\n".join(collected)
+        return _yaml_unquote(rest)
     return None
 
 
