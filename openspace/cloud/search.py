@@ -148,7 +148,12 @@ class SkillSearchEngine:
         ranked = ranker.bm25_only(query, bm25_candidates, top_k=min(limit * 3, len(candidates)))
 
         ranked_ids = {sc.skill_id for sc in ranked}
+        bm25_scores = {sc.skill_id: sc.bm25_score for sc in ranked}
         filtered = [c for c in candidates if c.get("skill_id") in ranked_ids]
+
+        # Persist BM25 scores so the scoring phase can reuse them
+        for candidate in filtered:
+            candidate["_bm25_score"] = bm25_scores.get(candidate.get("skill_id"), 0.0)
 
         # If BM25 found nothing, fall back to all candidates
         return filtered if filtered else candidates
@@ -159,7 +164,7 @@ class SkillSearchEngine:
         query_tokens: list[str],
         query_embedding: Optional[List[float]],
     ) -> List[Dict[str, Any]]:
-        """Compute hybrid score = vector_score + lexical_boost."""
+        """Compute semantic/server ranking with BM25 fallback plus lexical boost."""
         from openspace.cloud.embedding import cosine_similarity
 
         scored = []
@@ -185,7 +190,18 @@ class SkillSearchEngine:
             if category_slug:
                 lexical_boost += 0.35 * _lexical_boost(query_tokens, "", category_slug)
 
-            final_score = ranking_signal_score + lexical_boost
+            bm25_score = candidate.get("_bm25_score") or 0.0
+
+            use_bm25_fallback = (
+                not query_embedding
+                and not isinstance(candidate.get("_search_rank"), (int, float))
+            )
+
+            final_score = (
+                ranking_signal_score
+                + lexical_boost
+                + (bm25_score if use_bm25_fallback else 0.0)
+            )
 
             result_entry: Dict[str, Any] = {
                 "skill_id": candidate.get("skill_id", ""),
