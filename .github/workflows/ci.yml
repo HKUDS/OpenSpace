@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package with dev extras
+        run: pip install -e ".[dev]"
+
+      - name: Verify PyYAML is importable
+        run: python -c "import yaml; print(yaml.__version__)"
+
+      - name: Run Python test suite
+        run: >
+          pytest tests/ -q --tb=short
+          --ignore=tests/benchmarks/terminal_bench/test_openspace_harbor_agent_config.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run packaging copy-script tests
+        run: node --test tests/packaging/test_copy_dist_to_packaged.mjs
+
+      - name: Verify wheel can include packaged frontend paths
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+          assert 'packaged/dashboard/**/*' in pyproject
+          assert 'packaged/tui/**/*' in pyproject
+          script = Path("scripts/copy-dist-to-packaged.mjs")
+          assert script.is_file(), "missing packaging copy script"
+          print("packaging contract ok")
+          PY
