@@ -8,8 +8,6 @@
 
 **Your Skills Keep Growing. OpenSpace Helps You Retrieve, Evaluate, and Evolve with Every Run**
 
-<a href="https://trendshift.io/repositories/24064?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-24064" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/24064" alt="HKUDS%2FOpenSpace | Trendshift" width="250" height="55"/></a>
-
 [![Agents](https://img.shields.io/badge/Agents-Claude_Code%20%7C%20Codex%20%7C%20OpenClaw%20%7C%20...-99C9BF.svg)](https://modelcontextprotocol.io/)
 [![Python](https://img.shields.io/badge/Python-3.12+-FCE7D6.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-C1E5F5.svg)](https://opensource.org/licenses/MIT/)
@@ -21,6 +19,8 @@
 **One Skill Management Layer to Power Them All** — Claude Code, Codex, OpenClaw, Hermès, nanobot.
 
 <img src="assets/cli-typing.gif" width="500px" alt="openspace --query your task">
+
+<a href="https://trendshift.io/repositories/24064?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-24064" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/24064" alt="HKUDS%2FOpenSpace | Trendshift" width="250" height="55"/></a>
 
 </div>
 
