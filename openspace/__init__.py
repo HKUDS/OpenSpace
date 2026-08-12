@@ -7,7 +7,7 @@ if _TYPE_CHECKING:
     from openspace.llm import LLMClient as LLMClient
     from openspace.recording import RecordingManager as RecordingManager
 
-__version__ = "0.1.0"
+__version__ = "2.0.0"
 
 __all__ = [
     # Version

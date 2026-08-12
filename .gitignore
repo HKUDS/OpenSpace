@@ -62,6 +62,9 @@ tests/skill_engine/evolution/*
 !tests/cloud/
 tests/cloud/*
 !tests/cloud/test_upload_trust.py
+!tests/config/
+tests/config/*
+!tests/config/test_data_home.py
 scripts/
 
 # Local agent/project memory

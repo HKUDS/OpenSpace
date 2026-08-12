@@ -82,8 +82,14 @@ class _MCPSafeStdout:
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _PACKAGE_ROOT = Path(__file__).resolve().parents[2]
-_LOG_DIR = _PROJECT_ROOT / "logs"
-_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+try:
+    from openspace.config.constants import get_log_dir
+
+    _LOG_DIR = get_log_dir(create=True)
+except Exception:
+    _LOG_DIR = Path.home() / ".openspace" / "logs"
+    _LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 _real_stdout = sys.stdout
 

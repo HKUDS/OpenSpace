@@ -86,10 +86,10 @@ class SkillRanker:
 
         if cache_dir is None:
             try:
-                from openspace.config.constants import PROJECT_ROOT
-                cache_dir = PROJECT_ROOT / ".openspace" / "skill_embedding_cache"
+                from openspace.config.constants import get_cache_dir
+                cache_dir = get_cache_dir("skill_embedding_cache", create=False)
             except Exception:
-                cache_dir = Path(".openspace") / "skill_embedding_cache"
+                cache_dir = Path.home() / ".openspace" / "skill_embedding_cache"
         self._cache_dir = Path(cache_dir)
 
         if self._enable_cache:

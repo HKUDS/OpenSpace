@@ -28,16 +28,13 @@ from openspace.skill_engine.evolution import (
 from openspace.skill_engine.triggers import TriggerStore
 from openspace.skill_engine.types import SkillRecord
 
+from openspace.config.constants import get_workflow_roots
+
 API_PREFIX = "/api/v1"
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST_DIR = PROJECT_ROOT / "apps" / "dashboard" / "dist"
 PACKAGED_DASHBOARD_STATIC_DIR = PACKAGE_ROOT / "packaged" / "dashboard"
-WORKFLOW_ROOTS = [
-    PROJECT_ROOT / "logs" / "recordings",
-    PROJECT_ROOT / "logs" / "trajectories",
-    PROJECT_ROOT / "benchmarks" / "gdpval" / "results",
-    PROJECT_ROOT / "benchmarks" / "terminal_bench" / "runs",
-]
+WORKFLOW_ROOTS = get_workflow_roots()
 
 PIPELINE_STAGES = [
     {

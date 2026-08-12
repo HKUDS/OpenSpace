@@ -2,7 +2,7 @@
 SQLite-backed persistence for tool quality data. Shares the same database file as SkillStore.
 
 Storage location (default):
-    <project_root>/.openspace/openspace.db
+    <data_home>/openspace.db  (see openspace.config.constants.get_data_home)
 
 Tables managed by this module:
     tool_quality_records   — one row per tool (aggregate stats)
@@ -18,7 +18,7 @@ from typing import Dict, Optional, Tuple
 
 from .types import ToolQualityRecord, ExecutionRecord
 from openspace.utils.logging import Logger
-from openspace.config.constants import PROJECT_ROOT
+from openspace.config.constants import get_default_db_path
 
 logger = Logger.get_logger(__name__)
 
@@ -60,15 +60,13 @@ class QualityStore:
     """SQLite-backed persistence for tool quality data.
 
     By default uses the same ``.db`` file as ``SkillStore``
-    (``<project_root>/.openspace/openspace.db``).
+    (``get_default_db_path()``).
     Each subsystem creates its own tables independently.
     """
 
     def __init__(self, db_path: Optional[Path] = None):
         if db_path is None:
-            db_dir = PROJECT_ROOT / ".openspace"
-            db_dir.mkdir(parents=True, exist_ok=True)
-            db_path = db_dir / "openspace.db"
+            db_path = get_default_db_path(create=True)
 
         self._db_path = Path(db_path)
         self._mu = threading.Lock()
