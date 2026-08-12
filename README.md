@@ -4,6 +4,8 @@
     <img src="assets/logo_v2.png" width="280px" style="border: none; box-shadow: none;" alt="OpenSpace Logo">
 </picture>
 
+<a href="https://trendshift.io/repositories/24064?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-24064" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/24064" alt="HKUDS%2FOpenSpace | Trendshift" width="250" height="55"/></a>
+
 ## OpenSpace: The Skill Management Layer for AI Agents
 
 **Your Skills Keep Growing. OpenSpace Helps You Retrieve, Evaluate, and Evolve with Every Run**
