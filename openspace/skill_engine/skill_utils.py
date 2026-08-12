@@ -64,6 +64,18 @@ def _yaml_quote(value: str) -> str:
     return f'"{escaped}"'
 
 
+def _format_frontmatter_value(value: Any) -> str:
+    """Serialize a frontmatter value for re-emit after PyYAML parse."""
+    if isinstance(value, str):
+        return _yaml_quote(value)
+    import yaml
+
+    # First line only: scalar dumps include a trailing '...' document end.
+    return yaml.safe_dump(
+        value, default_flow_style=True, allow_unicode=True
+    ).splitlines()[0]
+
+
 def _yaml_unquote(value: str) -> str:
     """Strip surrounding quotes and unescape a YAML scalar value."""
     if len(value) >= 2:
@@ -164,9 +176,9 @@ def normalize_frontmatter(content: str) -> str:
     """Re-serialize frontmatter with proper YAML quoting.
 
     Parses the existing frontmatter, then re-writes each value through
-    :func:`_yaml_quote` so that colons, hashes, and other special
-    characters are safely double-quoted.  The body after ``---`` is
-    preserved verbatim.
+    :func:`_format_frontmatter_value` so scalars (bool/int/date) and
+    strings with special characters re-emit safely.  The body after
+    ``---`` is preserved verbatim.
 
     Returns *content* unchanged if no frontmatter is found.
     """
@@ -180,7 +192,7 @@ def normalize_frontmatter(content: str) -> str:
     if not fm:
         return content
 
-    safe_lines = [f"{k}: {_yaml_quote(v)}" for k, v in fm.items()]
+    safe_lines = [f"{k}: {_format_frontmatter_value(v)}" for k, v in fm.items()]
     new_fm = "\n".join(safe_lines)
     return f"---\n{new_fm}\n---{content[match.end():]}"
 
