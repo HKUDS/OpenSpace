@@ -482,11 +482,14 @@ def detect_patch_type(content: str) -> PatchType:
     if "*** Begin Files" in content:
         return PatchType.FULL
 
-    # Detect bare *** File: markers (no *** Begin Files envelope).
-    # Must appear at line start; require at least one to look structural.
-    file_header_hits = _FILE_HEADER_RE.findall(content)
-    if file_header_hits:
+    # ≥2 File: markers, or one at content start with a body (docstring rule 3).
+    file_headers = list(_FILE_HEADER_RE.finditer(content))
+    if len(file_headers) >= 2:
         return PatchType.FULL
+    if len(file_headers) == 1:
+        match = file_headers[0]
+        if not content[: match.start()].strip() and content[match.end() :].strip():
+            return PatchType.FULL
 
     if "<<<<<<< SEARCH" in content:
         return PatchType.DIFF
@@ -525,6 +528,10 @@ def parse_multi_file_full(content: str) -> Dict[str, str]:
     headers = list(_FILE_HEADER_RE.finditer(stripped))
     if not headers:
         # No multi-file markers — treat entire content as SKILL.md
+        return {SKILL_FILENAME: content}
+
+    # Single mid-document *** File: is prose/example text, not multi-file.
+    if len(headers) == 1 and stripped[: headers[0].start()].strip():
         return {SKILL_FILENAME: content}
 
     files: Dict[str, str] = {}
