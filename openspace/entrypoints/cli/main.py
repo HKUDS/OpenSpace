@@ -449,7 +449,8 @@ async def main():
             )
             startup_console_log_handlers = []
         else:
-            await interactive_mode(openspace, ui_manager)
+            if not await interactive_mode(openspace, ui_manager):
+                return 1
         
     except KeyboardInterrupt:
         print("\n\nInterrupt signal detected")

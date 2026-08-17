@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from typing import Optional
 
 from openspace.runtime import ExecutionRequest, ExecutionResult
@@ -94,7 +95,7 @@ async def _execute_task(openspace: OpenSpace, query: str, ui_manager: UIManager)
     return result
 
 
-async def interactive_mode(openspace: OpenSpace, ui_manager: UIManager):
+async def interactive_mode(openspace: OpenSpace, ui_manager: UIManager) -> bool:
     CLIDisplay.print_interactive_header()
     
     while True:
@@ -123,9 +124,18 @@ async def interactive_mode(openspace: OpenSpace, ui_manager: UIManager):
         except KeyboardInterrupt:
             print("\n\nInterrupt signal detected, exiting...")
             break
+        except EOFError:
+            print(
+                "\nInput stream closed; exiting interactive mode. "
+                "Use --query for non-interactive execution.",
+                file=sys.stderr,
+            )
+            return False
         except Exception as e:
             logger.error(f"Error: {e}", exc_info=True)
             print(f"\nError: {e}")
+
+    return True
 
 
 async def single_query_mode(openspace: OpenSpace, query: str, ui_manager: UIManager):
