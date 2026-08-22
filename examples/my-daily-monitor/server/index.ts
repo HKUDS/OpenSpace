@@ -15,7 +15,7 @@ const PORT = Number(process.env.API_PORT || 3001);
 const server = http.createServer(async (req, res) => {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Finnhub-Key, X-Github-Token, X-Feishu-App-Id, X-Feishu-App-Secret, X-Twitter-Token, X-Gmail-Token, X-OpenRouter-Key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Finnhub-Key, X-Github-Token, X-Feishu-App-Id, X-Feishu-App-Secret, X-Xquik-Key, X-Gmail-Token, X-OpenRouter-Key');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }

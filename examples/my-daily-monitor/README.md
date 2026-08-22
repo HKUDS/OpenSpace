@@ -107,7 +107,7 @@ Open the dashboard and click **⚙ Settings** in the top-right corner. Add your 
 | `OUTLOOK_REFRESH_TOKEN` | Email (Outlook) | Microsoft Graph OAuth flow |
 | `FEISHU_APP_ID` | Feishu Messages | Feishu Open Platform |
 | `FEISHU_APP_SECRET` | Feishu Messages | Feishu Open Platform |
-| `TWITTER_BEARER_TOKEN` | Social Feed | Twitter Developer Portal |
+| `XQUIK_API_KEY` | X keyword search (optional) | [Xquik authentication](https://docs.xquik.com/api-reference/authentication) |
 | `OPENROUTER_API_KEY` | AI Agent | [openrouter.ai](https://openrouter.ai/) |
 | `OPENROUTER_MODEL` | AI Model (optional) | Default: `minimax/minimax-m2.5` |
 
@@ -124,6 +124,7 @@ Open the dashboard and click **⚙ Settings** in the top-right corner. Add your 
 | News Alert Keywords | Keyword highlights across all news sources |
 | GitHub Repos | Repos to monitor for CI/CD (`owner/repo`, one per line) |
 | Feishu Chat IDs | Feishu group chats to stream messages from |
+| X Search Keywords | Terms to monitor through the [Xquik search API](https://docs.xquik.com/api-reference/x/search-tweets) |
 | AI Summaries | Toggle AI-generated daily briefing on/off |
 
 #### Customization

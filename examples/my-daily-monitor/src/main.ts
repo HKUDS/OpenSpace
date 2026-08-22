@@ -273,7 +273,7 @@ registerCommands([
   { label: 'Schedule', description: 'Jump to schedule panel', action: () => scrollToPanel('schedule'), keywords: ['calendar', 'events'] },
   { label: 'Feishu', description: 'Jump to Feishu panel', action: () => scrollToPanel('feishu'), keywords: ['lark', 'chat'] },
   { label: 'Code Status', description: 'Jump to CI/CD panel', action: () => scrollToPanel('code-status'), keywords: ['github', 'ci'] },
-  { label: 'Social', description: 'Jump to community feed', action: () => scrollToPanel('social'), keywords: ['hn', 'reddit'] },
+  { label: 'Social', description: 'Jump to community feed', action: () => scrollToPanel('social'), keywords: ['hn', 'reddit', 'x'] },
   { label: 'Finance', description: 'Jump to daily finance', action: () => scrollToPanel('finance'), keywords: ['expenses'] },
   { label: 'Map', description: 'Jump to global map', action: () => scrollToPanel('map'), keywords: ['globe', 'world'] },
   { label: 'Weather', description: 'Jump to weather panel', action: () => scrollToPanel('weather'), keywords: ['forecast', 'temperature'] },
