@@ -11,7 +11,7 @@ export type SecretKey =
   | 'OUTLOOK_REFRESH_TOKEN'
   | 'FEISHU_APP_ID'
   | 'FEISHU_APP_SECRET'
-  | 'TWITTER_BEARER_TOKEN'
+  | 'XQUIK_API_KEY'
   | 'OPENROUTER_API_KEY'
   | 'OPENROUTER_MODEL';
 
@@ -43,12 +43,11 @@ export const SECRET_REGISTRY: SecretMeta[] = [
   // Feishu
   { key: 'FEISHU_APP_ID', label: 'Feishu App ID', placeholder: 'cli_...', group: 'Feishu', required: true },
   { key: 'FEISHU_APP_SECRET', label: 'Feishu App Secret', placeholder: '', group: 'Feishu', type: 'password' },
-  // Twitter
-  { key: 'TWITTER_BEARER_TOKEN', label: 'Twitter Bearer Token', placeholder: 'AAAA...', group: 'Social', type: 'password' },
+  // X search
+  { key: 'XQUIK_API_KEY', label: 'Xquik API Key', placeholder: 'xq_...', group: 'Social', type: 'password', hint: 'For opt-in X keyword search' },
   // AI
   { key: 'OPENROUTER_API_KEY', label: 'OpenRouter API Key', placeholder: 'sk-or-...', group: 'AI', type: 'password', hint: 'For AI summaries' },
   { key: 'OPENROUTER_MODEL', label: 'AI Model', placeholder: 'minimax/minimax-m2.5', group: 'AI', hint: 'OpenRouter model ID' },
 ];
 
 export const SECRET_GROUPS = [...new Set(SECRET_REGISTRY.map(s => s.group))];
-

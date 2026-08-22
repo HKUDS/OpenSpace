@@ -25,7 +25,7 @@ This skill defines WHAT the my-daily-monitor dashboard should do — the panels,
 | 5 | News Feed | GNews / HackerNews | P0 — Core | Implemented |
 | 6 | Code Status (CI/CD) | GitHub Actions API | P1 — Important | Implemented |
 | 7 | Office Documents | Microsoft Graph API | P1 — Important | Implemented |
-| 8 | Social Feed (Twitter) | Twitter API v2 | P1 — Important | Implemented |
+| 8 | Social Feed (X) | Xquik search API | P1 — Important | Implemented |
 | 9 | Daily Finance | Manual / Spreadsheet | P1 — Important | Implemented |
 | 10 | Weather | OpenWeatherMap / wttr.in | P1 — Important | Implemented |
 | 11 | World Clock | Built-in (no API) | P2 — Nice to Have | Implemented |
@@ -221,12 +221,14 @@ interface OfficeDocument {
 
 ### 8. Social Feed
 
-**Purpose**: Twitter timeline + Xiaohongshu content
+**Purpose**: Community news + X keyword monitoring
 
-**Twitter API v2**:
-- Auth: Bearer Token
-- Endpoint: `GET /api/social?action=search&q=...` or `action=list&listId=...`
-- Server-side: Forward to Twitter search/list endpoint
+**X search through Xquik**:
+- Auth: Xquik API key in the `x-api-key` request header
+- Endpoint: `GET https://xquik.com/api/v1/x/tweets/search`
+- Query: User-defined social keywords with `queryType=Latest`
+- Server-side: Forward the request through `/api/social`; never put the API key in a URL
+- Cost control: Fetch at most 10 posts and cache results for 15 minutes
 
 **Xiaohongshu**:
 - No official API; requires web scraping or reverse-engineered endpoints
@@ -236,15 +238,13 @@ interface OfficeDocument {
 ```typescript
 interface SocialPost {
   id: string;
-  platform: 'twitter' | 'xiaohongshu';
+  platform: 'hn' | 'reddit' | 'x';
   author: string;
-  username?: string;
-  content: string;
+  title: string;
+  url: string;
   timestamp: string;
-  likes?: number;
-  retweets?: number;
-  comments?: number;
-  url?: string;
+  score: number;
+  comments: number;
 }
 ```
 
@@ -320,7 +320,7 @@ All API keys are stored in browser localStorage via a Settings modal:
 | `FEISHU_APP_ID` | Feishu | Feishu Open Platform |
 | `FEISHU_APP_SECRET` | Feishu | Feishu Open Platform |
 | `GITHUB_TOKEN` | Code Status | GitHub → Settings → PAT |
-| `TWITTER_BEARER_TOKEN` | Social Feed | Twitter Developer Portal |
+| `XQUIK_API_KEY` | X keyword search | https://docs.xquik.com/api-reference/authentication |
 | `GROQ_API_KEY` | AI Insights | https://console.groq.com/ |
 
 Keys are passed to the server via request headers (never in query params), and the server-side proxy uses them to call external APIs.
@@ -343,4 +343,3 @@ This dashboard handles personal data. Key considerations:
 **Phase 2** (Complete): Code Status + Office + Social + Finance + Weather
 **Phase 3** (Enhanced): Map + AI Insights + World Clock + Xiaohongshu
 **Phase 4** (Polish): DevOps + Live News + Quick Links + My Monitors + Command Palette
-

@@ -198,6 +198,14 @@ function renderPreferencesTab(container: HTMLElement): void {
       </div>
     </div>
     <div class="settings-group">
+      <div class="settings-group-title">Social</div>
+      <div class="settings-row">
+        <label class="settings-label">X search keywords (comma-separated)</label>
+        <input class="settings-input" data-pref="socialKeywords" value="${escapeHtml(p.socialKeywords.join(', '))}" />
+        <div class="settings-hint">Requires an Xquik API key. Leave blank to disable X search.</div>
+      </div>
+    </div>
+    <div class="settings-group">
       <div class="settings-group-title">Feishu</div>
       <div class="settings-row">
         <label class="settings-label">Chat IDs to monitor (one per line)</label>

@@ -1,7 +1,4 @@
-/**
- * Tech Community Panel — HN / Reddit / V2EX aggregator.
- * All free APIs, no keys needed.
- */
+/** Tech Community Panel — HN, Reddit, and optional X search results. */
 import { Panel } from './Panel';
 import { fetchCommunityPosts, type CommunityPost, type CommunitySource } from '@/services/social';
 import { formatTime, escapeHtml } from '@/utils';
@@ -10,12 +7,14 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: string
   hn:     { label: 'HN',     color: '#ff6600', icon: 'Y' },
   reddit: { label: 'Reddit', color: '#ff4500', icon: 'r/' },
   v2ex:   { label: 'V2EX',   color: '#333',    icon: 'V' },
+  x:      { label: 'X',      color: '#111',    icon: 'X' },
 };
 
 const TABS: { id: CommunitySource; label: string }[] = [
   { id: 'all',    label: 'All' },
   { id: 'hn',     label: 'Hacker News' },
   { id: 'reddit', label: 'Reddit' },
+  { id: 'x',      label: 'X' },
 ];
 
 export class SocialPanel extends Panel {
