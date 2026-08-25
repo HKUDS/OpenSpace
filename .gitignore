@@ -62,6 +62,11 @@ tests/skill_engine/evolution/*
 !tests/cloud/
 tests/cloud/*
 !tests/cloud/test_upload_trust.py
+!tests/entrypoints/
+tests/entrypoints/*
+!tests/entrypoints/mcp/
+tests/entrypoints/mcp/*
+!tests/entrypoints/mcp/test_server_search.py
 scripts/
 
 # Local agent/project memory

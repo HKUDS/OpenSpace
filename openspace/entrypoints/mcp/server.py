@@ -231,6 +231,46 @@ async def _get_runtime_store(*, required: bool = True):
     return None
 
 
+async def _get_local_search_context():
+    """Return local skills without booting the full agent runtime for search.
+
+    ``search_skills`` is a discovery-only MCP tool. Initializing OpenSpace here
+    also initializes grounding providers, memory, evolution, and model config,
+    which can take longer than a normal MCP tool timeout on Windows. Reuse the
+    runtime registry when it already exists; otherwise build the same canonical
+    registry directly and omit optional quality-store enrichment.
+    """
+
+    if _openspace_instance is not None and _openspace_instance.is_initialized():
+        host_skill_dirs_raw = os.environ.get("OPENSPACE_HOST_SKILL_DIRS", "")
+        if host_skill_dirs_raw:
+            env_dirs = [
+                directory.strip()
+                for directory in host_skill_dirs_raw.split(",")
+                if directory.strip()
+            ]
+            if env_dirs:
+                await _auto_register_skill_dirs(env_dirs)
+
+        registry = _openspace_instance.get_skill_registry()
+        if not registry:
+            return None, None
+        store = _openspace_instance.get_skill_store()
+        if store and getattr(store, "_closed", False):
+            store = None
+        return registry.list_skills(), store
+
+    from openspace.runtime.skill_registry import build_skill_registry
+
+    registry = await asyncio.to_thread(
+        build_skill_registry,
+        workspace_dir=os.environ.get("OPENSPACE_WORKSPACE"),
+    )
+    if not registry:
+        return None, None
+    return registry.list_skills(), None
+
+
 async def _get_cloud_mapping_store():
     from openspace.cloud.local_mapping import CloudLocalMappingStore
 
@@ -818,21 +858,7 @@ async def search_skills(
         if not q:
             return _json_ok({"results": [], "count": 0})
 
-        # Re-scan host skill directories so newly created skills are searchable.
-        local_skills = None
-        store = None
-        openspace = await _get_openspace()
-
-        host_skill_dirs_raw = os.environ.get("OPENSPACE_HOST_SKILL_DIRS", "")
-        if host_skill_dirs_raw:
-            env_dirs = [d.strip() for d in host_skill_dirs_raw.split(",") if d.strip()]
-            if env_dirs:
-                await _auto_register_skill_dirs(env_dirs)
-
-        registry = openspace.get_skill_registry()
-        if registry:
-            local_skills = registry.list_skills()
-            store = await _get_runtime_store(required=False)
+        local_skills, store = await _get_local_search_context()
 
         results = await hybrid_search_skills(
             query=q,
