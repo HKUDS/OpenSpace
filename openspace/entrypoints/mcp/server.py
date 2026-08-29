@@ -2,7 +2,8 @@
 
 Exposes the following tools to MCP clients:
   cloud_auth_flow — Register/login and provision cloud agent API keys
-  execute_task   — Delegate a task (auto-registers skills, auto-searches, auto-evolves)
+  execute_task   — Delegate a task (auto-registers skills, auto-searches, auto-evolves; supports async background + polling)
+  get_task_status — Poll an async execute_task's progress, logs, and result
   search_skills  — Standalone local skill search
   cloud_browse_skills — LLM-guided cloud package/skill browsing and import
   fix_skill      — Run a manual FIX job for a broken skill through evolution
@@ -25,6 +26,9 @@ import json
 import logging
 import os
 import sys
+import time
+import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -125,7 +129,33 @@ try:
 except (TypeError, ValueError):
     pass
 
-mcp = FastMCP("OpenSpace", **_fastmcp_kwargs)
+
+@asynccontextmanager
+async def lifespan(app: FastMCP):
+    """Warm up the OpenSpace engine in the background.
+
+    The heavy part of ``execute_task`` is ``_get_openspace()`` (LLM client,
+    grounding client, skill registry, DB...). Initializing it on the first
+    call adds many seconds of "silent hang" right after the MCP handshake.
+    Pre-warming here means the first real task starts from an already-ready
+    engine.
+
+    We intentionally do NOT await initialization inside lifespan: the client
+    handshake would block on it and defeat the purpose. Instead we fire a
+    background task; ``_get_openspace()`` is lock-guarded and idempotent, so
+    a racing first tool call simply waits on (or joins) the same init.
+    """
+    try:
+        asyncio.create_task(_get_openspace())
+    except Exception as e:  # pragma: no cover - best-effort warmup
+        logger.debug(f"Engine warmup task failed to start (non-fatal): {e}")
+    try:
+        yield
+    finally:
+        pass
+
+
+mcp = FastMCP("OpenSpace", lifespan=lifespan, **_fastmcp_kwargs)
 
 _openspace_instance = None
 _openspace_lock = asyncio.Lock()
@@ -134,6 +164,14 @@ _openspace_lock = asyncio.Lock()
 _registered_skill_dirs: set = set()
 
 _UPLOAD_META_FILENAME = ".upload_meta.json"
+
+# --- 异步任务注册表 ----------------------------------------------------
+# execute_task 默认异步执行：立即返回 task_id，后台跑完整任务；客户端用
+# get_task_status 轮询进度与结果，避免长任务在客户端硬超时被掐断。
+# 单线程事件循环内读写 → 无需加锁。
+_TASKS: Dict[str, Dict[str, Any]] = {}
+_TASK_LOG_LIMIT = 200   # 每个任务最多保留的分步日志条数
+_TASK_KEEP_MAX = 50     # 内存最多保留的任务数（超出的清理最早的已完成/失败任务）
 
 
 def _resolve_session_storage_dir(workspace: str | None) -> str | None:
@@ -679,6 +717,70 @@ async def cloud_auth_flow(
         return _json_error(redact_cloud_secret(str(e)), status="error")
 
 
+# ----------------------------------------------------------------------
+# 异步任务状态辅助（execute_task 异步模式 + get_task_status 轮询）
+# ----------------------------------------------------------------------
+def _new_task_id() -> str:
+    return "task_" + uuid.uuid4().hex[:12]
+
+
+def _update_task(
+    task_id: str,
+    *,
+    progress: float | None = None,
+    total: float | None = None,
+    message: str | None = None,
+    status: str | None = None,
+    result: Dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    """更新任务状态；message 非空时追加一条分步日志（一步一报备）。"""
+    state = _TASKS.get(task_id)
+    if state is None:
+        return
+    now = time.time()
+    state["updated_at"] = now
+    if progress is not None:
+        state["progress"] = progress
+    if total is not None:
+        state["total"] = total
+    if message is not None:
+        state["progress_message"] = message
+        state["logs"].append({
+            "ts": now,
+            "percent": int(state["progress"] / state["total"] * 100) if state["total"] else 0,
+            "message": message,
+        })
+        if len(state["logs"]) > _TASK_LOG_LIMIT:
+            state["logs"] = state["logs"][-_TASK_LOG_LIMIT:]
+    if status is not None:
+        state["status"] = status
+    if result is not None:
+        state["result"] = result
+    if error is not None:
+        state["error"] = error
+
+
+async def _task_progress_callback(
+    task_id: str, progress: float, total: float, message: str
+) -> None:
+    """agent 每轮迭代的进度回调 → 落到任务状态（迭代数换算成百分比）。"""
+    pct = round(progress / total * 100) if total else 0
+    _update_task(task_id, progress=pct, total=100, message=message)
+
+
+def _prune_tasks() -> None:
+    """限制内存中保留的任务数：优先清掉最早结束（completed/failed）的任务。"""
+    if len(_TASKS) <= _TASK_KEEP_MAX:
+        return
+    finished = [
+        tid for tid, st in _TASKS.items() if st["status"] in ("completed", "failed")
+    ]
+    finished.sort(key=lambda tid: _TASKS[tid]["updated_at"])
+    for tid in finished[: len(_TASKS) - _TASK_KEEP_MAX]:
+        _TASKS.pop(tid, None)
+
+
 @mcp.tool()
 async def execute_task(
     task: str,
@@ -686,6 +788,7 @@ async def execute_task(
     max_iterations: int | None = None,
     skill_dirs: list[str] | None = None,
     search_scope: str = "all",
+    wait: bool = False,
 ) -> str:
     """Execute a task with OpenSpace's full grounding engine.
 
@@ -700,8 +803,10 @@ async def execute_task(
     placement, call ``upload_skill`` with ``skill_dir``, ``visibility``, and
     ``cloud_package_path``.
 
-    Note: This call blocks until the task completes (may take minutes).
-    Set MCP client tool-call timeout ≥ 600 seconds.
+    **异步模式（默认 wait=False）**：立即返回 ``task_id`` 并在后台执行，
+    长任务不会触发客户端工具调用超时。用 ``get_task_status(task_id)``
+    轮询分步进度（status / percent / current_step / logs / result）。
+    传 ``wait=True`` 则阻塞到任务结束并直接返回完整结果（兼容旧调用方）。
 
     Args:
         task: The task instruction (natural language).
@@ -715,8 +820,76 @@ async def execute_task(
                       "all" (default) — local + cloud; falls back to local
                       if no API key is configured.
                       "local" — local SkillRegistry only (fast, no cloud).
+        wait: True 则同步阻塞并返回完整结果；默认 False（异步+轮询）。
+    """
+    task_id = _new_task_id()
+    _prune_tasks()
+    _TASKS[task_id] = {
+        "task_id": task_id,
+        "status": "running",
+        "created_at": time.time(),
+        "updated_at": time.time(),
+        "task": task,
+        "progress": 0,
+        "total": 100,
+        "progress_message": "任务已提交，排队启动中...",
+        "logs": [],
+        "result": None,
+        "error": None,
+    }
+    logger.info(f"execute_task[{task_id}] submitted (wait={wait})")
+
+    runner = asyncio.create_task(
+        _run_execute_task(
+            task_id=task_id,
+            task=task,
+            workspace_dir=workspace_dir,
+            max_iterations=max_iterations,
+            skill_dirs=skill_dirs,
+            search_scope=search_scope,
+        )
+    )
+
+    if not wait:
+        # 异步：立即返回，客户端轮询 get_task_status
+        return _json_ok({
+            "task_id": task_id,
+            "status": "running",
+            "message": "任务已提交到后台执行。轮询 get_task_status(task_id) 获取进度与结果。",
+            "poll_tool": "get_task_status",
+        })
+
+    # wait=True：阻塞到完成（供 CLI / 测试脚本等同步调用方使用）
+    try:
+        await runner
+    except Exception as e:
+        logger.error(f"execute_task[{task_id}] background failed: {e}", exc_info=True)
+    state = _TASKS.get(task_id)
+    if state is None:
+        return _json_error("task state lost", task_id=task_id, status="error")
+    if state["status"] == "completed":
+        return _json_ok(state["result"])
+    if state["error"]:
+        return _json_error(state["error"], task_id=task_id, status="error")
+    return _json_error("task did not complete", task_id=task_id, status="error")
+
+
+async def _run_execute_task(
+    task_id: str,
+    task: str,
+    workspace_dir: str | None,
+    max_iterations: int | None,
+    skill_dirs: list[str] | None,
+    search_scope: str,
+) -> None:
+    """后台执行 execute_task 的主体逻辑，并把分步进度写入任务状态。
+
+    这是原 execute_task 的同步体：预热 → 注册技能 → 云检索 → 执行 →
+    写 upload_meta → 格式化。每一步都以「日志条目」落到 _TASKS，
+    客户端通过 get_task_status 看到长任务的分步过程（一步一报备）。
     """
     try:
+        _update_task(task_id, message="OpenSpace 引擎预热中，请稍候...")
         openspace = await _get_openspace()
 
         # Re-scan host skill directories (from env) to pick up skills
@@ -725,10 +898,12 @@ async def execute_task(
         if host_skill_dirs_raw:
             env_dirs = [d.strip() for d in host_skill_dirs_raw.split(",") if d.strip()]
             if env_dirs:
+                _update_task(task_id, message="注册宿主技能目录...")
                 await _auto_register_skill_dirs(env_dirs)
 
         # Auto-register bot skill directories (from call parameter)
         if skill_dirs:
+            _update_task(task_id, message="注册机器人技能目录...")
             await _auto_register_skill_dirs(skill_dirs)
 
         # Determine where CAPTURED skills should be written.
@@ -745,12 +920,14 @@ async def execute_task(
             if first_env:
                 capture_skill_dir = first_env
 
-        # Cloud search + import (if requested)
+        # Cloud search + candidates (if requested)
         cloud_skill_candidates: List[Dict[str, Any]] = []
         if search_scope == "all" and _cloud_available_for_implicit_use():
+            _update_task(task_id, message="检索云端技能...")
             cloud_skill_candidates = await _cloud_search_candidates(task)
 
         # Execute
+        _update_task(task_id, message="开始执行任务（每轮迭代持续上报进度）...")
         result = await openspace.execute(
             ExecutionRequest(
                 prompt=task,
@@ -777,11 +954,64 @@ async def execute_task(
                 "cloud_browse_skills(action='import_skill', cloud_skill_id=..., "
                 "local_category_path=...) before expecting them in local retrieval."
             )
-        return _json_ok(formatted)
+
+        _update_task(
+            task_id,
+            progress=100,
+            total=100,
+            message="任务执行完成，正在汇总结果...",
+            status="completed",
+            result=formatted,
+        )
+        logger.info(f"execute_task[{task_id}] completed")
 
     except Exception as e:
-        logger.error(f"execute_task failed: {e}", exc_info=True)
-        return _json_error(e, status="error")
+        logger.error(f"execute_task[{task_id}] failed: {e}", exc_info=True)
+        _update_task(
+            task_id,
+            status="failed",
+            message=f"任务失败：{str(e)[:200]}",
+            error=str(e),
+        )
+
+
+@mcp.tool()
+async def get_task_status(task_id: str, include_logs: bool = True) -> str:
+    """查询异步任务的状态与进度（配合 execute_task 的异步模式轮询）。
+
+    execute_task 默认立即返回 task_id；用本工具轮询即可拿到长任务的
+    分步执行过程（一步一报备）：
+      - status: running / completed / failed
+      - percent / current_step: 当前进度与正在进行的步骤
+      - logs: 分步日志（引擎预热、技能注册、云检索、每轮迭代、汇总...）
+      - result: 任务完成后的完整结果（含 evolved_skills 等）
+      - error: 失败原因（status=failed 时）
+
+    Args:
+        task_id: execute_task 返回的任务 ID。
+        include_logs: 是否包含分步日志（默认 True）。
+    """
+    state = _TASKS.get(task_id)
+    if state is None:
+        return _json_error(f"task not found: {task_id}", task_id=task_id, status="not_found")
+
+    out: Dict[str, Any] = {
+        "task_id": state["task_id"],
+        "status": state["status"],
+        "created_at": state["created_at"],
+        "updated_at": state["updated_at"],
+        "progress": state["progress"],
+        "total": state["total"],
+        "percent": int(state["progress"] / state["total"] * 100) if state["total"] else 0,
+        "current_step": state["progress_message"],
+    }
+    if include_logs:
+        out["logs"] = state["logs"]
+    if state["status"] == "completed" and state["result"] is not None:
+        out["result"] = state["result"]
+    if state["status"] == "failed":
+        out["error"] = state["error"]
+    return _json_ok(out)
 
 
 @mcp.tool()
