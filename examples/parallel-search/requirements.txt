@@ -1,0 +1,3 @@
+# Install from this directory. OpenSpace's MCP connectors use the 1.x SDK.
+-e ../..
+mcp>=1.0.0,<2
