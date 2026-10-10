@@ -200,6 +200,10 @@ cp openspace/config/config_mcp.json.example openspace/config/config_mcp.json
 }
 ```
 
+For an HTTP MCP server with free, keyless web search and page fetching, see the
+[runnable Parallel Search example](../../examples/parallel-search/README.md).
+Merge its server entry into your configuration to keep existing MCP servers.
+
 ## 5. Execution Mode
 
 The shell backend supports only local execution. This keeps Bash sandbox

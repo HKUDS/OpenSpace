@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "parallel": {
+      "url": "https://search.parallel.ai/mcp",
+      "headers": {
+        "User-Agent": "OpenSpace/2.0 (+https://github.com/HKUDS/OpenSpace)"
+      }
+    }
+  }
+}
