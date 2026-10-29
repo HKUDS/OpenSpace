@@ -681,6 +681,25 @@ OpenSpace builds upon the following open-source projects. We sincerely thank the
 - **[ClawWork](https://github.com/HKUDS/ClawWork)** - Transforms AI assistants into true AI coworkers
 - **[WorldMonitor](https://github.com/koala73/worldmonitor)** - Real-time global intelligence dashboard
 
+## 🤝 Contributing
+
+We welcome contributions! OpenSpace is designed to be extensible:
+
+- 🔍 **New skill retrievers** — Add sources for discovering skills
+- 🧬 **Skill evolution rules** — Define how skills improve from task outcomes
+- 📊 **Dashboard improvements** — Enhanced local skill hub UI
+- 📖 **Documentation** — Tutorials, integration guides, best practices
+
+### How to contribute
+
+1. Fork the repository and clone your fork.
+2. Create a topic branch from `main`: `git switch -c your-topic-branch`.
+3. Make your change and commit it with a clear message.
+4. Push the branch to your fork: `git push origin your-topic-branch`.
+5. Open a pull request against `HKUDS/OpenSpace:main` and describe what changed and why.
+
+Please keep changes small and focused so they are easy to review. Documentation improvements, typo fixes, and new skill retrievers are great first contributions.
+
 ---
 
 <div align="center">
