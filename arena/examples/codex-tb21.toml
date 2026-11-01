@@ -1,0 +1,261 @@
+# Public formal codex x Terminal-Bench 2.1 experiment (10 candidates).
+# Relative runtime paths are documented in README.md.
+
+[benchmark_runtime.inner_agent]
+ref = "builtin:terminus-2"
+
+[baseline]
+cwd = "."
+candidate_root = "."
+
+[baseline.env]
+OPENROUTER_API_KEY = "OPENROUTER_API_KEY"
+
+[baseline.config]
+development_concurrency = 16
+prompt = "Improve only src/harbor/agents/terminus_2/** in the candidate checkout. Alternate one complete `rsi-arena a run-set --all` call with one `rsi-arena submit` call, waiting for each command to finish. Use only public A feedback, and repeat until Arena reaches its attempt cap. Do not modify tests, verifiers, task definitions, or Arena runtime files."
+model = "deepseek/deepseek-v4-flash-0731"
+reasoning_effort = "high"
+provider = "openrouter"
+sandbox_backend = "bwrap"
+bwrap_path = "bwrap"
+sandbox_network = "open"
+allow_unsafe_host = false
+run_kind = "formal"
+cli_path = "codex"
+provider_base_url = "https://openrouter.ai/api/v1"
+provider_env_key = "OPENROUTER_API_KEY"
+provider_name = "OpenRouter"
+input_cost_per_million = 0.06426
+output_cost_per_million = 0.12852
+# budget_usd = 50.0
+max_resumes = 100
+min_segment_s = 1.0
+max_new_terminal_a_per_b_cycle = 1
+extra_cli_args = []
+
+[baseline.config.development_policy]
+
+[baseline.config.development_policy.benchmarks]
+
+[baseline.config.development_policy.benchmarks.tb2]
+a_task_ids = [
+  "adaptive-rejection-sampler",
+  "build-cython-ext",
+  "chess-best-move",
+  "constraints-scheduling",
+  "count-dataset-tokens",
+  "crack-7z-hash",
+  "distribution-search",
+  "extract-moves-from-video",
+  "feal-differential-cryptanalysis",
+  "make-doom-for-mips",
+  "mcmc-sampling-stan",
+  "portfolio-optimization",
+  "qemu-startup",
+  "regex-log",
+  "sparql-university",
+  "video-processing",
+]
+b_task_ids = [
+  "build-pmars",
+  "caffe-cifar-10",
+  "cobol-modernization",
+  "compile-compcert",
+  "dna-assembly",
+  "feal-linear-cryptanalysis",
+  "filter-js-from-html",
+  "git-leak-recovery",
+  "install-windows-3.11",
+  "kv-store-grpc",
+  "large-scale-text-editing",
+  "make-mips-interpreter",
+  "mteb-leaderboard",
+  "multi-source-data-merger",
+  "openssl-selfsigned-cert",
+  "password-recovery",
+  "path-tracing",
+  "path-tracing-reverse",
+  "pytorch-model-cli",
+  "rstan-to-pystan",
+  "sqlite-db-truncate",
+  "sqlite-with-gcov",
+  "torch-pipeline-parallelism",
+  "tune-mjcf",
+]
+
+[baseline.config.development_policy.benchmarks.tb2.sampling]
+kind = "random_subset"
+sample_size = 12
+seed = 11
+fixed_task_ids = []
+[[benchmarks]]
+name = "tb2"
+
+[benchmarks.config]
+cell_id = "codex-tb21-formal"
+
+[benchmarks.config.campaign_freeze]
+schema = "campaign-freeze"
+campaign_id = "arena-public-codex-tb21-cap10"
+held_out_sealed = true
+freeze_id = "sha256:0e8489523640515388a4292cc89f6ef104d73f1883d7f74f24ce49a039169d0f"
+
+[benchmarks.config.campaign_freeze.benchmarks]
+
+[benchmarks.config.campaign_freeze.benchmarks.tb2]
+source_reference = "terminal-bench-2.1@5c8eadf1f393183288fa08b8f73ca9a469cc5e00"
+task_catalog_ref = "rsi-arena://terminal-bench-2.1"
+
+[benchmarks.config.campaign_freeze.cells]
+
+[benchmarks.config.campaign_freeze.cells.codex-tb21-formal]
+method = "codex"
+benchmarks = ["tb2"]
+aggregate = { kind = "macro_mean_pass_rate" }
+
+[benchmarks.config.campaign_freeze.dataset_boundaries]
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.tb2]
+schema = "dataset-boundary"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.tb2.development_set]
+ordered_task_ids = [
+  "adaptive-rejection-sampler",
+  "build-cython-ext",
+  "chess-best-move",
+  "constraints-scheduling",
+  "count-dataset-tokens",
+  "crack-7z-hash",
+  "distribution-search",
+  "extract-moves-from-video",
+  "feal-differential-cryptanalysis",
+  "make-doom-for-mips",
+  "mcmc-sampling-stan",
+  "portfolio-optimization",
+  "qemu-startup",
+  "regex-log",
+  "sparql-university",
+  "video-processing",
+  "build-pmars",
+  "caffe-cifar-10",
+  "cobol-modernization",
+  "compile-compcert",
+  "dna-assembly",
+  "feal-linear-cryptanalysis",
+  "filter-js-from-html",
+  "git-leak-recovery",
+  "install-windows-3.11",
+  "kv-store-grpc",
+  "large-scale-text-editing",
+  "make-mips-interpreter",
+  "mteb-leaderboard",
+  "multi-source-data-merger",
+  "openssl-selfsigned-cert",
+  "password-recovery",
+  "path-tracing",
+  "path-tracing-reverse",
+  "pytorch-model-cli",
+  "rstan-to-pystan",
+  "sqlite-db-truncate",
+  "sqlite-with-gcov",
+  "torch-pipeline-parallelism",
+  "tune-mjcf",
+]
+digest = "sha256:aecec19b14d190a00987881c044f63b1adb52dc28732ffa2a5729a044fe6debe"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.tb2.development_set.task_clusters]
+"adaptive-rejection-sampler" = "scientific-computing/medium"
+"build-cython-ext" = "debugging/medium"
+"chess-best-move" = "games/medium"
+"constraints-scheduling" = "personal-assistant/medium"
+"count-dataset-tokens" = "model-training/medium"
+"crack-7z-hash" = "security/medium"
+"distribution-search" = "machine-learning/medium"
+"extract-moves-from-video" = "file-operations/hard"
+"feal-differential-cryptanalysis" = "mathematics/hard"
+"make-doom-for-mips" = "software-engineering/hard"
+"mcmc-sampling-stan" = "data-science/hard"
+"portfolio-optimization" = "optimization/medium"
+"qemu-startup" = "system-administration/medium"
+"regex-log" = "data-processing/medium"
+"sparql-university" = "data-querying/hard"
+"video-processing" = "video-processing/hard"
+"build-pmars" = "software-engineering/medium"
+"caffe-cifar-10" = "machine-learning/medium"
+"cobol-modernization" = "software-engineering/easy"
+"compile-compcert" = "system-administration/medium"
+"dna-assembly" = "scientific-computing/hard"
+"feal-linear-cryptanalysis" = "mathematics/hard"
+"filter-js-from-html" = "security/medium"
+"git-leak-recovery" = "software-engineering/medium"
+"install-windows-3.11" = "system-administration/hard"
+"kv-store-grpc" = "software-engineering/medium"
+"large-scale-text-editing" = "file-operations/medium"
+"make-mips-interpreter" = "software-engineering/hard"
+"mteb-leaderboard" = "data-science/medium"
+"multi-source-data-merger" = "data-processing/medium"
+"openssl-selfsigned-cert" = "security/medium"
+"password-recovery" = "security/hard"
+"path-tracing" = "software-engineering/hard"
+"path-tracing-reverse" = "software-engineering/hard"
+"pytorch-model-cli" = "model-training/medium"
+"rstan-to-pystan" = "data-science/medium"
+"sqlite-db-truncate" = "debugging/medium"
+"sqlite-with-gcov" = "system-administration/medium"
+"torch-pipeline-parallelism" = "software-engineering/hard"
+"tune-mjcf" = "scientific-computing/medium"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.tb2.held_out_set]
+opaque_identity = "terminal-bench-2.1@5c8eadf1f393183288fa08b8f73ca9a469cc5e00#held-out"
+digest = "sha256:94139431f1a74857ed790511f31505f25879386f7c54f37a29be1d3fad2325a0"
+count = 49
+
+[benchmarks.config.cell_budget]
+wall_seconds = 12721.0
+# max_cost_usd = 50.0
+
+[benchmarks.config.backend]
+task_repository = "terminal-bench-2-1"
+offline_verifier_authority_path = "offline-verifier-authority.json"
+trusted_harbor_root = "harbor"
+docker_path = "docker"
+docker_host = "unix:///var/run/docker.sock"
+bwrap_path = "bwrap"
+model_name = "openrouter/deepseek/deepseek-v4-flash-0731"
+provider_name = "openrouter"
+provider_base_url = "https://openrouter.ai/api/v1"
+provider_base_url_env_name = "OPENROUTER_BASE_URL"
+credential_env_name = "OPENROUTER_API_KEY"
+reasoning_effort = "high"
+worker_timeout_seconds = 3600.0
+harbor_wall_timeout_seconds = 12721.0
+cleanup_grace_seconds = 30.0
+pass_reward_threshold = 1.0
+
+[benchmarks.config.backend.verifier_settings]
+timeout_multiplier = 2.0
+
+[benchmarks.config.backend.verifier_settings.task_adaptations]
+
+[benchmarks.config.backend.verifier_settings.task_adaptations.torch-pipeline-parallelism]
+
+[benchmarks.config.backend.verifier_settings.task_adaptations.torch-pipeline-parallelism.verifier_env]
+PYTEST_ADDOPTS = "--maxfail=1"
+
+[benchmarks.config.development_adapter]
+harbor_max_retries = 0
+pass_reward_threshold = 1.0
+rsi_field_max_chars = 12000
+rsi_pack_max_chars = 72000
+artifact_codec = "native_state"
+
+[benchmarks.resolved]
+
+[arena]
+attempt_cap = 10
+concurrency = 16
+wall_seconds = 79200.0
+
+[execution]
+profile = "public-codex-tb21-cap10-formal"

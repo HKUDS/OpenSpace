@@ -1,0 +1,1 @@
+"""Packaged default OpenEvolve prompts."""

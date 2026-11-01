@@ -1,0 +1,96 @@
+# BrowseComp-Plus Codex operator template.
+# Render the two generated sections with:
+# python -m rsi_arena.benchmarks.browsecomp_plus.operator render ...
+
+[benchmark_runtime.inner_agent]
+# For a Terminus-2 candidate checkout use `ref = "builtin:terminus-2"`.
+# With the shipped reference runner, this exact ref selects the prompt-only
+# candidate contract; the trusted runner does not import a candidate module.
+ref = "python:browsecomp_agent:run"
+
+[baseline]
+cwd = "."
+candidate_root = "."
+
+[baseline.env]
+OPENROUTER_API_KEY = "OPENROUTER_API_KEY"
+
+[baseline.config]
+development_concurrency = 8
+prompt = "Improve inner_prompt.txt using public BrowseComp development feedback. Alternate one complete `rsi-arena a run-set --all` call with one `rsi-arena submit` call. Never inspect benchmark data, answers, qrels, corpus files, index files, or Arena runtime state."
+model = "REPLACE_OUTER_MODEL"
+reasoning_effort = "high"
+provider = "openrouter"
+sandbox_backend = "bwrap"
+bwrap_path = "bwrap"
+sandbox_network = "open"
+allow_unsafe_host = false
+run_kind = "formal"
+cli_path = "codex"
+provider_base_url = "https://openrouter.ai/api/v1"
+provider_env_key = "OPENROUTER_API_KEY"
+provider_name = "OpenRouter"
+max_resumes = 100
+min_segment_s = 1.0
+max_new_terminal_a_per_b_cycle = 1
+extra_cli_args = []
+
+# BROWSECOMP_DEVELOPMENT_POLICY
+
+[[benchmarks]]
+name = "browsecomp_plus"
+
+[benchmarks.config]
+cell_id = "RENDERED_CELL_ID"
+development_task_concurrency = 8
+
+# BROWSECOMP_CAMPAIGN_FREEZE
+
+[benchmarks.config.trusted_data]
+catalog_path = "/trusted/browsecomp-plus/catalog.jsonl"
+catalog_format = "official-obfuscated-jsonl"
+corpus_path = "/trusted/browsecomp-plus/corpus.jsonl"
+index_path = "/trusted/browsecomp-plus/lucene-index"
+
+[benchmarks.config.retrieval]
+backend = "pyserini-bm25"
+top_k = 5
+snippet_tokens = 512
+search_concurrency = 8
+publish_development_snippets = false
+
+[benchmarks.config.retrieval.tokenizer]
+kind = "tiktoken"
+encoding = "cl100k_base"
+
+[benchmarks.config.agent_runtime]
+runner_ref = "python:rsi_arena.benchmarks.browsecomp_plus.openai_reference:run_agent"
+task_wall_timeout_seconds = 3600.0
+
+[benchmarks.config.agent_model]
+provider = "openrouter"
+model = "REPLACE_SOLVER_MODEL"
+max_tokens = 20000
+reasoning_effort = "high"
+temperature = 0.0
+
+[benchmarks.config.judge]
+router_ref = "python:rsi_arena.benchmarks.browsecomp_plus.openai_reference:route_judge"
+provider = "openrouter"
+model = "REPLACE_JUDGE_MODEL"
+
+[benchmarks.config.judge.profile]
+max_tokens = 2048
+reasoning_effort = "high"
+temperature = 0.0
+inflight_retry_attempts = 1
+
+[benchmarks.resolved]
+
+[arena]
+attempt_cap = 10
+concurrency = 8
+wall_seconds = 86400.0
+
+[execution]
+profile = "browsecomp-plus-formal"

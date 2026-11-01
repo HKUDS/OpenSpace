@@ -1,0 +1,8 @@
+{user_message}
+
+
+# Changes Description
+The contents of this block below MUST be updated using SEARCH/REPLACE diffs in the same response. Otherwise all your changes will be discarded!
+```text
+{changes_description}
+```

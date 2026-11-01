@@ -1,0 +1,5 @@
+recursive-include examples *.toml
+recursive-include examples *.template
+recursive-include docs *.md
+recursive-include src/rsi_arena/benchmarks *.md
+recursive-include src/rsi_arena/benchmarks/browsecomp_plus/candidate_scaffold *.txt

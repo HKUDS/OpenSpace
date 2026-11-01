@@ -1,0 +1,13 @@
+[
+  {
+    "task_id": "aime-smoke-001",
+    "year": 0,
+    "contest": "SMOKE",
+    "number": 1,
+    "problem": "This is a synthetic local smoke AIME-style apparatus check. Let x be the integer satisfying 3x + 1 = 127. What is x?",
+    "answer": 42,
+    "smoke_only": true,
+    "synthetic": true,
+    "formal_membership": false
+  }
+]

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RSI Arena Inspector</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div><p class="eyebrow">RSI Arena</p><h1>Run inspector</h1></div>
+      <div class="controls"><label>Run <select id="run"></select></label><button id="refresh">Refresh</button></div>
+    </header>
+    <p id="status" class="status">Loading canonical run data…</p>
+    <section id="content" hidden>
+      <div id="summary" class="summary"></div>
+      <section class="panel"><h2>Attempts</h2><div id="attempts" class="cards"></div></section>
+      <section class="panel"><h2>Candidates</h2><div class="table-wrap"><table><thead><tr><th>Candidate</th><th>Role</th><th>Attempt</th><th>Outcome</th><th>Scores</th><th>Coverage</th><th>Usage</th><th>Diff</th></tr></thead><tbody id="candidates"></tbody></table></div></section>
+      <section class="columns">
+        <article class="panel"><h2>Lineage</h2><div id="lineage" class="stack"></div></article>
+        <article class="panel"><h2>Development</h2><div id="development" class="stack"></div></article>
+      </section>
+      <section class="panel"><h2>Held-out evaluation</h2><div id="held-out"></div></section>
+    </section>
+  </main>
+  <dialog id="diff"><form method="dialog"><button class="close">Close</button></form><h2 id="diff-title">Candidate diff</h2><pre id="diff-text"></pre></dialog>
+  <script src="/app.js"></script>
+</body>
+</html>

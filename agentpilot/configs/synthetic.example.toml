@@ -1,0 +1,52 @@
+# Runnable deterministic example. It does not use network services or API keys.
+
+[policy]
+method = "memory"
+direction_slate_size = 2
+max_planning_attempts = 2
+
+[policy.proposer]
+provider = "synthetic-example"
+model = "local-deterministic"
+max_output_tokens = 2048
+temperature = 0.0
+disable_reasoning = false
+max_proposer_turns = 6
+max_trace_reads = 3
+max_repository_reads = 3
+max_read_bytes = 24576
+max_scope_refs = 4
+max_new_paths = 4
+
+[policy.memory]
+max_chars = 4096
+
+[policy.memory.ranker]
+provider = "synthetic-example"
+model = "local-deterministic-ranker"
+max_output_tokens = 1024
+temperature = 0.0
+disable_reasoning = true
+
+[policy.memory.summarizer]
+provider = "synthetic-example"
+model = "local-deterministic-summarizer"
+max_output_tokens = 2048
+temperature = 0.0
+disable_reasoning = true
+
+[runtime]
+database_path = "../runs/synthetic-example.sqlite3"
+runs_root = "../runs/synthetic-example"
+worker_slots = 1
+sqlite_timeout_seconds = 5.0
+lease_ttl_seconds = 30.0
+lease_renew_interval_seconds = 5.0
+require_provider_reported_cost = true
+
+[environment]
+factory = "agentpilot.examples.synthetic_adapter:create_dependencies"
+identity = "synthetic-example"
+
+[environment.settings]
+root_seed = "explicit"

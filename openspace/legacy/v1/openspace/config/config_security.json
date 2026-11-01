@@ -1,0 +1,68 @@
+{
+  "security_policies": {
+    "global": {
+      "allow_shell_commands": true,
+      "allow_network_access": true,
+      "allow_file_access": true,
+      "blocked_commands": {
+        "common": ["rm", "-rf", "shutdown", "reboot", "poweroff", "halt"],
+        "linux": ["mkfs", "dd", "iptables", "systemctl", "init", "kill", "-9", "pkill"],
+        "darwin": ["diskutil", "dd", "pfctl", "launchctl", "killall"],
+        "windows": ["del", "format", "rd", "rmdir", "/s", "/q", "taskkill", "/f"]
+      },
+      "sandbox_enabled": false
+    },
+    "backend": {
+      "shell": {
+        "allow_shell_commands": true,
+        "allow_file_access": true,
+        "blocked_commands": {
+          "common": ["rm", "-rf", "shutdown", "reboot", "poweroff", "halt"],
+          "linux": [
+            "mkfs", "mkfs.ext4", "mkfs.xfs",
+            "dd",
+            "iptables", "ip6tables", "nftables",
+            "systemctl", "service",
+            "fdisk", "parted", "gdisk",
+            "mount", "umount",
+            "chmod", "777",
+            "chown", "root",
+            "passwd",
+            "useradd", "userdel", "usermod",
+            "kill", "-9", "pkill", "killall"
+          ],
+          "darwin": [
+            "diskutil",
+            "dd",
+            "pfctl",
+            "launchctl",
+            "dscl",
+            "chmod", "777",
+            "chown", "root",
+            "passwd",
+            "killall",
+            "pmset"
+          ],
+          "windows": [
+            "del", "erase",
+            "format",
+            "rd", "rmdir", "/s", "/q",
+            "diskpart",
+            "reg", "delete",
+            "net", "user",
+            "taskkill", "/f",
+            "wmic"
+          ]
+        },
+        "sandbox_enabled": false
+      },
+      "mcp": {
+        "sandbox_enabled": false
+      },
+      "web": {
+        "allow_network_access": true,
+        "allowed_domains": []
+      }
+    }
+  }
+}

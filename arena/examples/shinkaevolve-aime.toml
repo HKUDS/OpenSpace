@@ -1,0 +1,198 @@
+# Public formal shinkaevolve x AIME experiment (10 candidates).
+# Relative runtime paths are documented in README.md.
+
+[benchmark_runtime.inner_agent]
+ref = "builtin:terminus-2"
+
+[baseline]
+cwd = "."
+candidate_root = "."
+
+[baseline.env]
+
+[baseline.config]
+development_concurrency = 16
+candidate_path = "src/harbor/agents/terminus_2/terminus_2.py"
+num_generations = 10
+job_type = "arena"
+language = "python"
+patch_types = ["diff"]
+patch_type_probs = [1.0]
+llm_models = ["openrouter/deepseek/deepseek-v4-flash-0731"]
+llm_dynamic_selection = "fixed"
+embedding_model = ""
+meta_rec_interval = 0
+task_system_message = "Improve only the frozen Terminus 2 candidate file. Preserve its public interfaces and native agent loop. Use Arena A feedback as development material; Arena B score is the only selection fitness. If Arena feedback reports a candidate runtime failure, repair it before generating another candidate; never resubmit unchanged code. Return a focused code change."
+num_islands = 2
+archive_size = 32
+max_evaluation_jobs = 1
+max_proposal_jobs = 1
+max_db_workers = 2
+verbose = true
+
+[baseline.config.llm_kwargs]
+temperatures = [0.0]
+max_tokens = 32000
+reasoning_efforts = ["high"]
+
+[baseline.config.development_policy]
+
+[baseline.config.development_policy.benchmarks]
+
+[baseline.config.development_policy.benchmarks.aime]
+a_task_ids = [
+  "aime-2024-i-09",
+  "aime-2024-i-12",
+  "aime-2024-ii-04",
+  "aime-2025-i-14",
+  "aime-2025-ii-01",
+  "aime-2025-ii-10",
+]
+b_task_ids = [
+  "aime-2024-i-02",
+  "aime-2024-i-04",
+  "aime-2024-i-05",
+  "aime-2024-i-07",
+  "aime-2024-i-08",
+  "aime-2024-i-13",
+  "aime-2024-i-15",
+  "aime-2024-ii-06",
+  "aime-2024-ii-12",
+  "aime-2025-i-03",
+  "aime-2025-i-04",
+  "aime-2025-i-08",
+  "aime-2025-i-09",
+  "aime-2025-i-11",
+  "aime-2025-ii-04",
+  "aime-2025-ii-08",
+  "aime-2025-ii-11",
+  "aime-2025-ii-13",
+]
+
+[baseline.config.development_policy.benchmarks.aime.sampling]
+kind = "random_subset"
+sample_size = 9
+seed = 11
+fixed_task_ids = []
+[[benchmarks]]
+name = "aime"
+
+[benchmarks.config]
+cell_id = "shinkaevolve-aime-formal"
+candidate_entrypoint = "."
+
+[benchmarks.config.campaign_freeze]
+schema = "campaign-freeze"
+campaign_id = "arena-public-shinkaevolve-aime-cap10"
+held_out_sealed = true
+freeze_id = "sha256:79ec90b11681a468691c65d5c8244ead1afba3aabaa865a8d7eb4ba8fb7bd979"
+
+[benchmarks.config.campaign_freeze.benchmarks]
+
+[benchmarks.config.campaign_freeze.benchmarks.aime]
+source_reference = "rsi-arena://aime-2024-2025"
+task_catalog_ref = "rsi-arena://aime-2024-2025"
+
+[benchmarks.config.campaign_freeze.cells]
+
+[benchmarks.config.campaign_freeze.cells.shinkaevolve-aime-formal]
+method = "shinkaevolve"
+benchmarks = ["aime"]
+aggregate = { kind = "macro_mean_pass_rate" }
+
+[benchmarks.config.campaign_freeze.dataset_boundaries]
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime]
+schema = "dataset-boundary"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime.development_set]
+ordered_task_ids = [
+  "aime-2024-i-09",
+  "aime-2024-i-12",
+  "aime-2024-ii-04",
+  "aime-2025-i-14",
+  "aime-2025-ii-01",
+  "aime-2025-ii-10",
+  "aime-2024-i-02",
+  "aime-2024-i-04",
+  "aime-2024-i-05",
+  "aime-2024-i-07",
+  "aime-2024-i-08",
+  "aime-2024-i-13",
+  "aime-2024-i-15",
+  "aime-2024-ii-06",
+  "aime-2024-ii-12",
+  "aime-2025-i-03",
+  "aime-2025-i-04",
+  "aime-2025-i-08",
+  "aime-2025-i-09",
+  "aime-2025-i-11",
+  "aime-2025-ii-04",
+  "aime-2025-ii-08",
+  "aime-2025-ii-11",
+  "aime-2025-ii-13",
+]
+digest = "sha256:af5bddc8e4368606eb2d088cb456b7369f8f7c8d127e07ff8bfdb164d1d0b6ed"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime.development_set.task_clusters]
+"aime-2024-i-09" = "aime-2024/medium"
+"aime-2024-i-12" = "aime-2024/hard"
+"aime-2024-ii-04" = "aime-2024/easy"
+"aime-2025-i-14" = "aime-2025/hard"
+"aime-2025-ii-01" = "aime-2025/easy"
+"aime-2025-ii-10" = "aime-2025/medium"
+"aime-2024-i-02" = "aime-2024/easy"
+"aime-2024-i-04" = "aime-2024/easy"
+"aime-2024-i-05" = "aime-2024/easy"
+"aime-2024-i-07" = "aime-2024/medium"
+"aime-2024-i-08" = "aime-2024/medium"
+"aime-2024-i-13" = "aime-2024/hard"
+"aime-2024-i-15" = "aime-2024/hard"
+"aime-2024-ii-06" = "aime-2024/medium"
+"aime-2024-ii-12" = "aime-2024/hard"
+"aime-2025-i-03" = "aime-2025/easy"
+"aime-2025-i-04" = "aime-2025/easy"
+"aime-2025-i-08" = "aime-2025/medium"
+"aime-2025-i-09" = "aime-2025/medium"
+"aime-2025-i-11" = "aime-2025/hard"
+"aime-2025-ii-04" = "aime-2025/easy"
+"aime-2025-ii-08" = "aime-2025/medium"
+"aime-2025-ii-11" = "aime-2025/hard"
+"aime-2025-ii-13" = "aime-2025/hard"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime.held_out_set]
+opaque_identity = "rsi-arena://aime-2024-2025#held-out"
+digest = "sha256:3c802b66beb01f1451b45c7e6e64602a2487e163e99118d5e3bed11504b55a5b"
+count = 36
+
+[benchmarks.config.cell_budget]
+wall_seconds = 2100.0
+# max_cost_usd = 50.0
+
+[benchmarks.config.adapter]
+include_task_ids = []
+materialize_selected_only = false
+model = "openrouter/qwen/qwen3.5-9b"
+reasoning_enabled = true
+temperature = 0.0
+env_passthrough = []
+harbor_max_retries = 0
+worker_timeout_seconds = 1200.0
+cleanup_grace_seconds = 30.0
+physical_isolation = true
+trusted_harbor_root = "harbor"
+bridge_bwrap_path = "bwrap"
+provider_name = "openrouter"
+provider_base_url = "https://openrouter.ai/api/v1"
+provider_base_url_env_name = "OPENROUTER_BASE_URL"
+credential_env_name = "OPENROUTER_API_KEY"
+
+[benchmarks.resolved]
+
+[arena]
+attempt_cap = 10
+concurrency = 16
+wall_seconds = 61200.0
+
+[execution]
+profile = "public-shinkaevolve-aime-cap10-formal"

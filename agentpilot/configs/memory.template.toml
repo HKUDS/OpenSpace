@@ -1,0 +1,78 @@
+# Supported Textual Policy Learning schema template. This file is intentionally
+# NOT runnable as checked in: replace every REPLACE_ME value and provide the
+# external environment dependency factory before using `python -m agentpilot.app run`.
+# Proposal generation, ranking, and Policy Memory synthesis have separate
+# model roles.
+
+[policy]
+method = "memory"
+direction_slate_size = 4
+# Whole-slate replacements one logical round may spend before the batch is
+# declared planning-exhausted and the campaign starts a replacement batch.
+max_planning_attempts = 3
+
+[policy.proposer]
+provider = "REPLACE_ME-provider"
+model = "REPLACE_ME-model"
+max_output_tokens = 4096
+temperature = 0.3
+disable_reasoning = false
+max_proposer_turns = 6
+max_trace_reads = 3
+max_repository_reads = 3
+max_read_bytes = 24576
+max_scope_refs = 8
+max_new_paths = 4
+
+[policy.memory]
+max_chars = 8192
+
+[policy.memory.ranker]
+provider = "REPLACE_ME-ranker-provider"
+model = "REPLACE_ME-ranker-model"
+max_output_tokens = 2048
+temperature = 0.0
+disable_reasoning = true
+
+[policy.memory.summarizer]
+provider = "REPLACE_ME-summarizer-provider"
+model = "REPLACE_ME-summarizer-model"
+max_output_tokens = 8192
+temperature = 0.0
+disable_reasoning = true
+
+[runtime]
+# Paths are resolved relative to this TOML. The parent directories must exist
+# before runtime assembly; change these when copying the template elsewhere.
+database_path = "../runs/memory.sqlite3"
+runs_root = "../runs/memory"
+worker_slots = 2
+sqlite_timeout_seconds = 30.0
+lease_ttl_seconds = 120.0
+lease_renew_interval_seconds = 30.0
+# Set this to true only when the adapter supplies authoritative per-request
+# cost data. Runs with false must not be used for cost claims.
+require_provider_reported_cost = false
+
+[campaign]
+# Used only by the optional `agentpilot campaign` command. Increase these values
+# after measuring the concurrency and cost of your adapter.
+total_processes = 1
+actions_per_process = 1
+max_planning_batches_per_process = 3
+# Consecutive resumes allowed to make no durable progress before the campaign
+# stops rather than looping on the same interruption.
+max_stalled_resumes = 3
+poll_interval_seconds = 30.0
+# Maximum wait for authoritative provider accounting.
+reconciliation_deadline_seconds = 1800.0
+
+[environment]
+# This callable must return AssemblyDependencies. It owns provider clients,
+# durable search inputs, paired evaluation, and the action runner.
+factory = "REPLACE_ME.environment:create_dependencies"
+identity = "REPLACE_ME-environment"
+
+[environment.settings]
+# Opaque adapter-owned settings; replace this table for the real integration.
+adapter_config = "REPLACE_ME"

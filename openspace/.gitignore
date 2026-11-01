@@ -1,0 +1,102 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+.pytest_cache/
+.ruff_cache/
+
+# Development-only repository folders
+docs/
+tests/
+scripts/
+
+# Local agent/project memory
+OPENSPACE.md
+OPENSPACE.local.md
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+openspace/packaged/
+
+# Environment files (ignore .env but keep .env.example)
+.env
+!.env.example
+
+# MCP config files
+openspace/config/config_mcp.json
+
+# Communication config files
+openspace/config/config_communication.json
+
+# Logs
+logs/
+
+# GDPVal reference file cache (pre-downloaded from HuggingFace)
+benchmarks/gdpval/ref_cache/
+!/benchmarks/gdpval/tasks_50_full.jsonl
+
+# Terminal-Bench benchmark harness is not part of this release
+benchmarks/terminal_bench/
+!benchmarks/terminal_bench/
+!benchmarks/terminal_bench/*.py
+!benchmarks/terminal_bench/**/*.py
+benchmarks/terminal_bench/runs/
+benchmarks/terminal_bench/datasets/
+benchmarks/terminal_bench/logs/
+
+# Embedding cache - root level fully ignored
+/.openspace/
+# GDPVal benchmark cache
+benchmarks/gdpval/.openspace/*
+!benchmarks/gdpval/.openspace/*.db
+
+# Embedding cache
+embedding_cache/
+tool_quality/
+
+# MCP tool cache
+mcp_tool_cache.json
+mcp_tool_cache_sanitized.json
+
+# Config files
+openspace/config/config_dev.json
+
+# LLM keys
+openspace/llm/remote_client/
+
+# Local server temp files
+openspace/local_server/temp/
+
+# Example app local state and build artifacts
+examples/*/.openspace/*
+!examples/*/.openspace/*.db
+examples/*/dist/
+examples/*/node_modules/
+
+# Skills
+openspace/skills/*
+!openspace/skills/remember/
+!openspace/skills/remember/SKILL.md
+!openspace/skills/remember/.skill_id
+
+# Frontend dependencies
+node_modules/
+# App local dependency links
+apps/*/node_modules/

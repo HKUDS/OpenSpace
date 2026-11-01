@@ -1,0 +1,17 @@
+{
+  "name": "openspace-whatsapp-bridge",
+  "version": "1.0.0",
+  "description": "WhatsApp bridge for OpenSpace using Baileys",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "7.0.0-rc.9",
+    "pino": "^9.0.0",
+    "qrcode-terminal": "^0.12.0",
+    "ws": "^8.18.0"
+  }
+}

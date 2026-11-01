@@ -1,0 +1,638 @@
+/* ============================================================
+   Happy Variant Theme — Calm & Serene
+   Sage green + warm gold on cream. Inspired by worldmonitor.
+   Activated via data-variant="happy" on <html>.
+   ============================================================ */
+
+/* ---------- Happy Light Mode (default + explicit light) ---------- */
+/* Triple-attribute selector guarantees higher specificity than main.css :root[data-theme] */
+:root[data-variant="happy"],
+:root[data-variant="happy"][data-theme="light"],
+html[data-variant="happy"] {
+  /* Backgrounds — warm cream, NOT cold gray */
+  --bg: #FAFAF5;
+  --bg-secondary: #F5F3EE;
+  --surface: #FFFFFF;
+  --surface-hover: #F5F2EC;
+  --surface-active: #EDE9E0;
+
+  /* Borders — warm brownish tint */
+  --border: #DDD9CF;
+  --border-strong: #C8C2B5;
+  --border-subtle: #EBE8E0;
+
+  /* Text — forest green tones */
+  --text: #2D3A2E;
+  --text-secondary: #4A5A4C;
+  --text-dim: #6B7A6D;
+  --text-muted: #8A9A8C;
+  --text-faint: #A8B4AA;
+  --text-ghost: #C0C8C2;
+  --accent: #3D4A3E;
+
+  /* Overlays — sage green */
+  --overlay-subtle: rgba(107, 143, 94, 0.03);
+  --overlay-light: rgba(107, 143, 94, 0.05);
+  --overlay-medium: rgba(107, 143, 94, 0.08);
+  --overlay-heavy: rgba(107, 143, 94, 0.12);
+  --shadow-color: rgba(80, 70, 50, 0.08);
+
+  /* Scrollbar — warm */
+  --scrollbar-thumb: #C8C2B5;
+  --scrollbar-thumb-hover: #A8A298;
+
+  /* Input — warm beige */
+  --input-bg: #F2EFE8;
+
+  /* Panels — white cards on cream background */
+  --panel-bg: #FFFFFF;
+  --panel-border: #DDD9CF;
+
+  /* Typography — Nunito rounded sans-serif */
+  --font-mono: 'Nunito', system-ui, -apple-system, sans-serif;
+  --font-body: 'Nunito', system-ui, -apple-system, sans-serif;
+
+  /* Panel border radius */
+  --panel-radius: 14px;
+
+  /* Status — sage green, warm gold, rose */
+  --status-live: #6B8F5E;
+  --status-cached: #C4A35A;
+  --status-unavailable: #C48B9F;
+
+  /* Semantic Colors — warm, no harsh reds/greens */
+  --semantic-critical: #C4A35A;
+  --semantic-high: #6B8F5E;
+  --semantic-elevated: #7BA5C4;
+  --semantic-positive: #6B8F5E;
+  --semantic-info: #7BA5C4;
+  --semantic-warning: #C4A35A;
+
+  /* Color aliases */
+  --red: #C48B9F;
+  --green: #6B8F5E;
+  --yellow: #C4A35A;
+  --blue: #7BA5C4;
+}
+
+/* ---------- Happy Dark Mode ---------- */
+:root[data-variant="happy"][data-theme="dark"] {
+  /* Backgrounds — deep navy, warm darks */
+  --bg: #1A2332;
+  --bg-secondary: #1E2838;
+  --surface: #222E3E;
+  --surface-hover: #2A3848;
+  --surface-active: #2E3E50;
+
+  /* Borders */
+  --border: #344050;
+  --border-strong: #445868;
+  --border-subtle: #283545;
+
+  /* Text — warm off-whites */
+  --text: #E8E4DC;
+  --text-secondary: #D0CCC4;
+  --text-dim: #A0A098;
+  --text-muted: #808880;
+  --text-faint: #606860;
+  --text-ghost: #485048;
+  --accent: #E8E4DC;
+
+  /* Overlays & shadows */
+  --overlay-subtle: rgba(139, 175, 122, 0.03);
+  --overlay-light: rgba(139, 175, 122, 0.06);
+  --overlay-medium: rgba(139, 175, 122, 0.10);
+  --overlay-heavy: rgba(139, 175, 122, 0.18);
+  --shadow-color: rgba(0, 0, 0, 0.30);
+
+  /* Scrollbar */
+  --scrollbar-thumb: #445868;
+  --scrollbar-thumb-hover: #5A6E80;
+
+  /* Input */
+  --input-bg: #283545;
+
+  /* Panels */
+  --panel-bg: #222E3E;
+  --panel-border: #344050;
+
+  /* Typography */
+  --font-mono: 'Nunito', system-ui, -apple-system, sans-serif;
+  --font-body: 'Nunito', system-ui, -apple-system, sans-serif;
+
+  /* Panel border radius */
+  --panel-radius: 14px;
+
+  /* Semantic — lighter variants for dark backgrounds */
+  --semantic-critical: #D4B36A;
+  --semantic-high: #8BAF7A;
+  --semantic-elevated: #8BB5D4;
+  --semantic-positive: #8BAF7A;
+  --semantic-info: #8BB5D4;
+  --semantic-warning: #D4B36A;
+
+  --status-live: #8BAF7A;
+  --status-cached: #D4B36A;
+  --status-unavailable: #D49BAF;
+
+  --red: #D49BAF;
+  --green: #8BAF7A;
+  --yellow: #D4B36A;
+  --blue: #8BB5D4;
+}
+
+/* ==========================================================
+   Happy Global Overrides — Font, Sizing, Spacing
+   ========================================================== */
+
+/* Force Nunito on ALL elements (override monospace everywhere) */
+[data-variant="happy"],
+[data-variant="happy"] *,
+[data-variant="happy"] input,
+[data-variant="happy"] textarea,
+[data-variant="happy"] select,
+[data-variant="happy"] button {
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif !important;
+}
+
+/* Slightly larger base font */
+[data-variant="happy"] body {
+  font-size: 14px;
+}
+
+/* Panels grid — more breathing room */
+[data-variant="happy"] .panels-grid {
+  gap: 10px;
+  padding: 10px;
+}
+
+/* ==========================================================
+   Happy App Header — Clean, Warm, Friendly
+   ========================================================== */
+[data-variant="happy"] .app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+}
+
+[data-variant="happy"] .app-header h1 {
+  color: var(--green);
+  text-transform: none;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+[data-variant="happy"] .app-clock {
+  font-weight: 600;
+  color: var(--text);
+}
+
+[data-variant="happy"] .settings-btn {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* ==========================================================
+   Happy Panel Chrome — Rounded, Warm, Welcoming
+   ========================================================== */
+
+/* Panel border-radius & shadow (light) */
+[data-variant="happy"] .panel {
+  border-radius: var(--panel-radius, 14px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(80, 70, 50, 0.06), 0 1px 3px rgba(80, 70, 50, 0.04);
+  background: var(--surface);
+}
+
+[data-variant="happy"] .panel-header {
+  border-radius: var(--panel-radius, 14px) var(--panel-radius, 14px) 0 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Panel shadow (dark mode) */
+[data-variant="happy"][data-theme="dark"] .panel {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* Panel title — softer casing, no uppercase */
+[data-variant="happy"] .panel-title {
+  text-transform: none;
+  letter-spacing: 0.3px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* Panel count badge — rounded pill */
+[data-variant="happy"] .panel-count {
+  border-radius: 10px;
+  padding: 2px 8px;
+  background: rgba(107, 143, 94, 0.12);
+  color: var(--green);
+  border: none;
+}
+
+/* Panel content — slightly more padding */
+[data-variant="happy"] .panel-content {
+  padding: 10px;
+  font-size: 13px;
+}
+
+/* Panel resize handles — softer colors */
+[data-variant="happy"] .panel-resize-handle {
+  background: linear-gradient(to top, rgba(107, 143, 94, 0.08), transparent);
+}
+
+[data-variant="happy"] .panel-resize-handle:hover,
+[data-variant="happy"] .panel-resize-handle.active {
+  background: linear-gradient(to top, rgba(107, 143, 94, 0.20), transparent);
+}
+
+[data-variant="happy"] .panel-col-resize-handle {
+  background: linear-gradient(to left, rgba(107, 143, 94, 0.08), transparent);
+}
+
+[data-variant="happy"] .panel-col-resize-handle:hover,
+[data-variant="happy"] .panel-col-resize-handle.active {
+  background: linear-gradient(to left, rgba(107, 143, 94, 0.20), transparent);
+}
+
+/* Data badges — rounded pills */
+[data-variant="happy"] .panel-data-badge {
+  border-radius: 10px;
+}
+
+[data-variant="happy"] .panel-data-badge.live {
+  background: rgba(107, 143, 94, 0.12);
+  border-color: rgba(107, 143, 94, 0.25);
+  color: var(--green);
+}
+
+/* New badge — softer */
+[data-variant="happy"] .panel-new-badge {
+  border-radius: 10px;
+  background: var(--green);
+  color: #fff;
+}
+
+/* ==========================================================
+   Happy Tab Styles — Rounded boxed tabs
+   ========================================================== */
+[data-variant="happy"] .panel-tab {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+[data-variant="happy"] .panel-tab:hover {
+  background: var(--overlay-medium);
+  border-color: var(--border-strong);
+}
+
+[data-variant="happy"] .panel-tab.active {
+  background: rgba(107, 143, 94, 0.12);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 600;
+}
+
+[data-variant="happy"] .panel-tabs {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 4px;
+  padding: 8px 12px 6px;
+}
+
+/* ==========================================================
+   Happy Item Rows — Warmer hover
+   ========================================================== */
+[data-variant="happy"] .item-row:hover,
+[data-variant="happy"] .stock-row:hover,
+[data-variant="happy"] .news-item:hover,
+[data-variant="happy"] .news-item-rich:hover,
+[data-variant="happy"] .email-item:hover,
+[data-variant="happy"] .schedule-item:hover,
+[data-variant="happy"] .community-item:hover,
+[data-variant="happy"] .finance-item:hover,
+[data-variant="happy"] .code-status-row:hover,
+[data-variant="happy"] .office-item:hover,
+[data-variant="happy"] .fs-row:hover {
+  background: var(--surface-hover);
+}
+
+/* Community platform badges — softer */
+[data-variant="happy"] .community-platform-badge {
+  border-radius: 6px;
+}
+
+/* ==========================================================
+   Happy Loading States — Gentle, slower pulse
+   ========================================================== */
+[data-variant="happy"] .panel-loading-radar {
+  border-color: rgba(107, 143, 94, 0.25);
+}
+
+[data-variant="happy"] .panel-radar-sweep {
+  background: linear-gradient(90deg, transparent, var(--status-live));
+  animation: happy-radar-sweep 3s linear infinite;
+}
+
+@keyframes happy-radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+[data-variant="happy"] .panel-radar-dot {
+  background: var(--status-live);
+  box-shadow: 0 0 12px var(--status-live);
+  animation: happy-pulse 2s ease-in-out infinite;
+}
+
+@keyframes happy-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.08); }
+}
+
+[data-variant="happy"] .panel-loading-text {
+  letter-spacing: 0.2px;
+}
+
+/* ==========================================================
+   Happy Error State — Softer
+   ========================================================== */
+[data-variant="happy"] .panel-header-error {
+  background: rgba(196, 163, 90, 0.12);
+  border-bottom-color: rgba(196, 163, 90, 0.30);
+}
+
+[data-variant="happy"] .panel-header-error .panel-title {
+  color: var(--yellow);
+}
+
+/* ==========================================================
+   Happy Empty States — Friendly
+   ========================================================== */
+[data-variant="happy"] .panel-empty {
+  color: var(--text-dim);
+  gap: 12px;
+  font-size: 13px;
+}
+
+/* ==========================================================
+   Happy Badges — Rounded with warm colors
+   ========================================================== */
+[data-variant="happy"] .badge {
+  border-radius: 8px;
+}
+
+[data-variant="happy"] .badge-live {
+  background: rgba(107, 143, 94, 0.12);
+  color: var(--green);
+}
+
+[data-variant="happy"] .code-status-badge {
+  border-radius: 8px;
+}
+
+/* ==========================================================
+   Happy Sidebar — Softer
+   ========================================================== */
+[data-variant="happy"] .today-focus-sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+[data-variant="happy"] .focus-event {
+  border-radius: 10px;
+  border-left: 3px solid var(--green);
+}
+
+[data-variant="happy"] .focus-badge {
+  border-radius: 10px;
+}
+
+[data-variant="happy"] .focus-briefing {
+  border-radius: 10px;
+  border-left: 2px solid var(--green);
+}
+
+/* ==========================================================
+   Happy Stock Panel — Softer green/red
+   ========================================================== */
+[data-variant="happy"] .positive { color: var(--green); }
+[data-variant="happy"] .negative { color: var(--red); }
+
+/* ==========================================================
+   Happy Finance Panel — Warm accents
+   ========================================================== */
+[data-variant="happy"] .finance-stat { border-radius: 8px; }
+[data-variant="happy"] .finance-donut-chart { border-radius: 50%; }
+[data-variant="happy"] .finance-form { border-radius: 14px; }
+
+/* ==========================================================
+   Happy Weather Panel — Rounded cards
+   ========================================================== */
+[data-variant="happy"] .weather-clock-item {
+  border-radius: 10px;
+}
+
+[data-variant="happy"] .weather-forecast-day {
+  border-radius: 10px;
+}
+
+/* ==========================================================
+   Happy Quick Links — Rounded icons
+   ========================================================== */
+[data-variant="happy"] .ql-icon {
+  border-radius: 14px;
+}
+
+[data-variant="happy"] .ql-item {
+  border-radius: 10px;
+}
+
+/* ==========================================================
+   Happy Settings Modal — Rounded, Warm
+   ========================================================== */
+[data-variant="happy"] .modal {
+  border-radius: 14px;
+}
+
+[data-variant="happy"] .settings-save-btn {
+  background: var(--green);
+  border-color: var(--green);
+  border-radius: 8px;
+  color: #fff;
+}
+
+[data-variant="happy"] .settings-cancel-btn {
+  border-radius: 8px;
+}
+
+[data-variant="happy"] .settings-input,
+[data-variant="happy"] .settings-textarea {
+  border-radius: 8px;
+}
+
+/* ==========================================================
+   Happy Command Palette — Rounded
+   ========================================================== */
+[data-variant="happy"] .cmd-palette {
+  border-radius: 14px;
+}
+
+[data-variant="happy"] .cmd-palette-input {
+  border-radius: 14px 14px 0 0;
+}
+
+[data-variant="happy"] .cmd-item.active,
+[data-variant="happy"] .cmd-item:hover {
+  border-left-color: var(--green);
+}
+
+/* ==========================================================
+   Happy Breaking News — Rounded, calmer
+   ========================================================== */
+[data-variant="happy"] .breaking-alert {
+  border-radius: 14px;
+}
+
+/* ==========================================================
+   Happy Feishu Panel — Rounded avatars
+   ========================================================== */
+[data-variant="happy"] .fs-av-init {
+  background: linear-gradient(135deg, var(--green) 0%, var(--blue) 100%);
+  border-radius: 14px;
+}
+
+[data-variant="happy"] .fs-av-img {
+  border-radius: 14px;
+}
+
+[data-variant="happy"] .fs-dot {
+  background: var(--green);
+  box-shadow: 0 0 4px var(--green);
+}
+
+/* ==========================================================
+   Happy Map Panel — Softer legend
+   ========================================================== */
+[data-variant="happy"] .map-legend {
+  border-radius: 10px;
+  background: rgba(250, 250, 245, 0.90);
+  backdrop-filter: blur(8px);
+}
+
+[data-variant="happy"][data-theme="dark"] .map-legend {
+  background: rgba(26, 35, 50, 0.90);
+}
+
+/* ==========================================================
+   Happy Monitor Tags — Rounded pills
+   ========================================================== */
+[data-variant="happy"] .monitor-tag {
+  border-radius: 14px;
+}
+
+[data-variant="happy"] .monitor-match {
+  border-radius: 6px;
+}
+
+/* ==========================================================
+   Happy World Clock — Softer dots
+   ========================================================== */
+[data-variant="happy"] .wclock-dot {
+  box-shadow: 0 0 4px currentColor;
+}
+
+/* ==========================================================
+   Happy WebPanel — Rounded toolbar
+   ========================================================== */
+[data-variant="happy"] .web-panel-toolbar button {
+  border-radius: 6px;
+}
+
+[data-variant="happy"] .web-panel-fullscreen-overlay {
+  border-radius: 0;
+}
+
+/* ==========================================================
+   FORCE — Direct color overrides (insurance against cascade)
+   These guarantee the warm cream/brown + green palette shows
+   even if CSS variable inheritance is disrupted.
+   ========================================================== */
+[data-variant="happy"] body,
+[data-variant="happy"] #app {
+  background: #FAFAF5;
+  color: #2D3A2E;
+}
+
+[data-variant="happy"] .app-header {
+  background: #FFFFFF;
+  border-bottom-color: #DDD9CF;
+}
+
+[data-variant="happy"] .main-content {
+  background: #FAFAF5;
+}
+
+[data-variant="happy"] .panels-grid {
+  background: #FAFAF5;
+}
+
+[data-variant="happy"] .panel {
+  background: #FFFFFF;
+  border-color: #DDD9CF;
+}
+
+[data-variant="happy"] .panel-header {
+  background: #FFFFFF;
+  border-bottom-color: #EBE8E0;
+}
+
+[data-variant="happy"] .panel-content {
+  background: #FFFFFF;
+}
+
+[data-variant="happy"] .today-focus-sidebar {
+  background: #FFFFFF;
+  border-right-color: #DDD9CF;
+}
+
+/* Dark mode direct overrides */
+[data-variant="happy"][data-theme="dark"] body,
+[data-variant="happy"][data-theme="dark"] #app {
+  background: #1A2332;
+  color: #E8E4DC;
+}
+
+[data-variant="happy"][data-theme="dark"] .app-header {
+  background: #222E3E;
+  border-bottom-color: #344050;
+}
+
+[data-variant="happy"][data-theme="dark"] .main-content,
+[data-variant="happy"][data-theme="dark"] .panels-grid {
+  background: #1A2332;
+}
+
+[data-variant="happy"][data-theme="dark"] .panel {
+  background: #222E3E;
+  border-color: #344050;
+}
+
+[data-variant="happy"][data-theme="dark"] .panel-header {
+  background: #222E3E;
+  border-bottom-color: #283545;
+}
+
+[data-variant="happy"][data-theme="dark"] .panel-content {
+  background: #222E3E;
+}
+
+[data-variant="happy"][data-theme="dark"] .today-focus-sidebar {
+  background: #222E3E;
+  border-right-color: #344050;
+}
