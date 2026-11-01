@@ -1,0 +1,5 @@
+### Inspiration {program_number} (Score: {score}, Type: {program_type})
+```{language}
+{program_snippet}
+```
+Unique approach: {unique_features}

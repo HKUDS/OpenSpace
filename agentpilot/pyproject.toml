@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentpilot"
+version = "1.0.0"
+description = "Efficient recursive self-improvement via online policy learning"
+authors = [
+    {name = "AgentPilot Team@HKUDS"}
+]
+readme = {text = "AgentPilot provides efficient recursive self-improvement through UCB-based Policy Learning and Textual Policy Learning.", content-type = "text/markdown"}
+license = "MIT"
+requires-python = ">=3.11"
+keywords = ["program synthesis", "policy learning", "software agents"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = []
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.40"]
+gemini = ["google-genai>=1.0"]
+providers = [
+    "openai>=1.0",
+    "anthropic>=0.40",
+    "google-genai>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/HKUDS/AgentPilot"
+Repository = "https://github.com/HKUDS/AgentPilot"
+Issues = "https://github.com/HKUDS/AgentPilot/issues"
+
+[project.scripts]
+agentpilot = "agentpilot.app.cli:main"
+agentpilot-webui = "agentpilot.webui.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["agentpilot", "agentpilot.*"]
+
+[tool.setuptools.package-data]
+agentpilot = [
+    "host/skills/*/SKILL.md",
+    "host/skills/*/references/*.md",
+    "policy/proposer/skills/*/SKILL.md",
+    "webui/static/*.html",
+    "webui/static/*.js",
+    "webui/static/fonts/*.ttf",
+    "webui/static/fonts/*.txt",
+]

@@ -1,0 +1,107 @@
+"""Benchmark-neutral evaluation boundary for the runtime."""
+
+from agentpilot.evaluation.admission import (
+    AdmissionFate,
+    AdmissionRule,
+    AdmissionVerdict,
+    PairedEvidence,
+    decide_admission,
+)
+from agentpilot.evaluation.frozen_plan import (
+    HT_ESTIMATOR_CONTRACT,
+    UNIFORM_ESTIMATOR_CONTRACT,
+    FrozenActionEvaluationPlan,
+    FrozenEvaluationBatch,
+    FrozenInformationPriorSnapshot,
+)
+from agentpilot.evaluation.information_weighting import (
+    HorvitzThompsonPairedEstimator,
+    InformationWeighting,
+    TaskPassPrior,
+    information_weights,
+)
+from agentpilot.evaluation.paired import (
+    CellMeasurement,
+    ControlPrefetchHandle,
+    EvaluationCell,
+    FrozenPairedPlan,
+    MeasurementStatus,
+    PairedDiagnosticRule,
+    PairedEstimate,
+    PairedEvaluationEngine,
+    PairedEvaluationSummary,
+    SealedMeasurementEnvelope,
+    UniformPairedEstimator,
+    materialize_paired_outcome,
+)
+from agentpilot.evaluation.reward import (
+    EffectivenessRule,
+    classify_effectiveness,
+    higher_is_better_delta,
+)
+from agentpilot.evaluation.sampling import (
+    SamplingDraw,
+    SamplingUnit,
+    build_measurement_cells,
+    draw_stratified_sample,
+)
+from agentpilot.evaluation.sealed.contracts import (
+    SealedAuthorization,
+    SealedCostSlot,
+    SealedEvaluationClaim,
+    SealedEvaluationReceipt,
+    SealedEvaluationReservation,
+    SealedManifest,
+    SealedReport,
+    SealedSlotSettlement,
+    SealedSlotSide,
+    SealedSlotState,
+)
+from agentpilot.evaluation.sealed.service import SealedHoldoutController
+
+__all__ = [
+    "AdmissionFate",
+    "AdmissionRule",
+    "AdmissionVerdict",
+    "CellMeasurement",
+    "ControlPrefetchHandle",
+    "EffectivenessRule",
+    "EvaluationCell",
+    "FrozenActionEvaluationPlan",
+    "FrozenEvaluationBatch",
+    "FrozenInformationPriorSnapshot",
+    "FrozenPairedPlan",
+    "HT_ESTIMATOR_CONTRACT",
+    "HorvitzThompsonPairedEstimator",
+    "InformationWeighting",
+    "MeasurementStatus",
+    "PairedDiagnosticRule",
+    "PairedEstimate",
+    "PairedEvidence",
+    "PairedEvaluationEngine",
+    "PairedEvaluationSummary",
+    "SamplingDraw",
+    "SamplingUnit",
+    "SealedAuthorization",
+    "SealedCostSlot",
+    "SealedEvaluationClaim",
+    "SealedEvaluationReservation",
+    "SealedEvaluationReceipt",
+    "SealedHoldoutController",
+    "SealedManifest",
+    "SealedMeasurementEnvelope",
+    "SealedReport",
+    "SealedSlotSettlement",
+    "SealedSlotSide",
+    "SealedSlotState",
+    "TaskPassPrior",
+    "UNIFORM_ESTIMATOR_CONTRACT",
+    "UniformPairedEstimator",
+    "build_measurement_cells",
+    "classify_effectiveness",
+    "decide_admission",
+    "draw_stratified_sample",
+    "higher_is_better_delta",
+    "information_weights",
+    "materialize_paired_outcome",
+]

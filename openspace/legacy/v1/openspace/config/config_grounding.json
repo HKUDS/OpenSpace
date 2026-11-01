@@ -1,0 +1,82 @@
+{
+  "shell": {
+    "mode": "local",
+    "timeout": 60,
+    "max_retries": 3,
+    "retry_interval": 3.0,
+    "default_shell": "/bin/bash",
+    "working_dir": null,
+    "env": {},
+    "conda_env": null,
+    "default_port": 5000
+  },
+  "mcp": {
+    "timeout": 30,
+    "max_retries": 3,
+    "retry_interval": 2.0,
+    "sandbox": false,
+    "auto_initialize": true,
+    "eager_sessions": false,
+    "sse_read_timeout": 300.0,
+    "check_dependencies": true,
+    "auto_install": true
+  },
+  "gui": {
+    "mode": "local",
+    "timeout": 90,
+    "max_retries": 3,
+    "retry_interval": 5.0,
+    "driver_type": "pyautogui",
+    "failsafe": false,
+    "screenshot_on_error": true,
+    "pkgs_prefix": "import pyautogui; import time; pyautogui.FAILSAFE = {failsafe}; {command}"
+  },
+  "tool_search": {
+    "embedding_model": "BAAI/bge-small-en-v1.5",
+    "max_tools": 40,
+    "search_mode": "hybrid",
+    "enable_llm_filter": true,
+    "llm_filter_threshold": 50,
+    "enable_cache_persistence": true,
+    "cache_dir": null
+  },
+  "tool_quality": {
+    "enabled": true,
+    "enable_persistence": true,
+    "cache_dir": null,
+    "auto_evaluate_descriptions": true,
+    "enable_quality_ranking": true,
+    "evolve_interval": 5
+  },
+  "skills": {
+    "enabled": true,
+    "skill_dirs": [],
+    "max_select": 2
+  },
+  
+  "tool_cache_ttl": 600,
+  "tool_cache_maxsize": 500,
+
+  "debug": false,
+  "log_level": "INFO",
+  "enabled_backends": [
+    {
+      "name": "shell",
+      "provider_cls": "openspace.grounding.backends.shell.ShellProvider"
+    },
+    {
+      "name": "web",
+      "provider_cls": "openspace.grounding.backends.web.WebProvider"
+    },
+    {
+      "name": "mcp",
+      "provider_cls": "openspace.grounding.backends.mcp.MCPProvider"
+    },
+    {
+      "name": "gui",
+      "provider_cls": "openspace.grounding.backends.gui.GUIProvider"
+    }
+  ],
+  
+  "_comment_system_backend": "Note: 'system' backend is automatically registered and always available. It provides meta-level tools for querying system state. Do not add it to enabled_backends as it requires special initialization."
+}

@@ -1,0 +1,12 @@
+{
+  "comment": "[Optional] Loading grounding.json → security.json → dev.json (dev.json overrides the former ones)",
+  
+  "debug": true,
+  "log_level": "DEBUG",
+  
+  "security_policies": {
+    "global": {
+      "blocked_commands": []
+    }
+  }
+}

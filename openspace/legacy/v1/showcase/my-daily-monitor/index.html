@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="description" content="Personal daily monitoring dashboard — email, schedule, stocks, news, social, and more." />
+  <title>My Daily Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    // Restore theme before first paint to avoid flash
+    try {
+      const t = localStorage.getItem('mdm-theme');
+      const v = localStorage.getItem('mdm-variant');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      else if (v === 'happy') { document.documentElement.dataset.theme = 'light'; }
+      else { document.documentElement.dataset.theme = 'dark'; }
+      if (v === 'happy') document.documentElement.dataset.variant = v;
+    } catch {}
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="app-header-left">
+        <h1>My Daily Monitor</h1>
+      </div>
+      <div class="app-header-right">
+        <span class="app-clock" id="headerClock"></span>
+        <span class="app-date" id="headerDate"></span>
+        <button class="settings-btn" id="themeToggleBtn" title="Toggle dark/light mode">◐</button>
+        <button class="settings-btn" id="settingsBtn">⚙ Settings</button>
+      </div>
+    </header>
+    <div class="app-body">
+      <div id="sidebarMount"></div>
+      <main class="main-content">
+        <div class="panels-grid" id="panelsGrid"></div>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

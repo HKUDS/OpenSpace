@@ -1,0 +1,11 @@
+{
+  "agents": [
+    {
+      "name": "GroundingAgent",
+      "class_name": "GroundingAgent",
+      "backend_scope": ["shell", "mcp", "system"],
+      "max_iterations": 30,
+      "visual_analysis_timeout": 60.0
+    }
+  ]
+}

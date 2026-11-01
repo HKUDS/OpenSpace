@@ -1,141 +1,126 @@
-# Byte-compiled / optimized / DLL files
+# Python bytecode and build artifacts
 __pycache__/
 *.py[cod]
-*$py.class
-
-# OS files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
-
-# IDE files
-.vscode/
-.idea/
-.pytest_cache/
-.ruff_cache/
-
-# Development-only repository folders
-docs/
-tests/
-!tests/
-tests/*
-!tests/agents/
-tests/agents/*
-!tests/agents/turns/
-tests/agents/turns/*
-!tests/agents/turns/test_bench_checker_guard.py
-!tests/agents/turns/test_model_call_controller_bench_guards.py
-!tests/grounding/
-tests/grounding/*
-!tests/grounding/core/
-tests/grounding/core/*
-!tests/grounding/core/permissions/
-tests/grounding/core/permissions/*
-!tests/grounding/core/permissions/test_loader_runtime_modes.py
-!tests/runtime/
-tests/runtime/*
-!tests/runtime/test_headless_permission_context.py
-!tests/benchmarks/
-tests/benchmarks/*
-!tests/benchmarks/terminal_bench/
-tests/benchmarks/terminal_bench/*
-!tests/benchmarks/terminal_bench/test_openspace_harbor_agent_config.py
-!tests/skill_engine/
-tests/skill_engine/*
-!tests/skill_engine/test_skill_trust_lifecycle.py
-!tests/skill_engine/test_evolver_length_recovery.py
-!tests/skill_engine/test_evolution_retry_idempotency.py
-!tests/skill_engine/test_analyzer_length_recovery.py
-!tests/skill_engine/decision/
-tests/skill_engine/decision/*
-!tests/skill_engine/decision/test_analysis_adapter.py
-!tests/skill_engine/evolution/
-tests/skill_engine/evolution/*
-!tests/skill_engine/evolution/test_admission_capture.py
-!tests/skill_engine/evolution/test_capture_contract_pipeline.py
-!tests/skill_engine/evolution/test_capture_semantic_reviewer.py
-!tests/cloud/
-tests/cloud/*
-!tests/cloud/test_upload_trust.py
-scripts/
-
-# Local agent/project memory
-OPENSPACE.md
-OPENSPACE.local.md
-
-# Distribution / packaging
-dist/
+*.so
 build/
+dist/
 *.egg-info/
+.Python
 *.egg
-openspace/packaged/
+.eggs/
+develop-eggs/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+.installed.cfg
+MANIFEST
 
-# Environment files (ignore .env but keep .env.example)
+# Environments and secrets
 .env
+.env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials*.json
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+__pypackages__/
 
-# MCP config files
-openspace/config/config_mcp.json
+# Tooling caches
+.pytest_cache/
+.cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.pyright/
+.pyre/
+.pytype/
+.pybuilder/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+junit.xml
+nosetests.xml
+*.cover
+*.py,cover
+docs/_build/
+site/
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+cython_debug/
 
-# Communication config files
-openspace/config/config_communication.json
+# Local verification and draft material
+/.local-backups/
+tests/
+test_*.py
+/arena/data/aime_harbor_tasks/
+/pytest-of-*/
+/README_templete.md
+# Keep local investigation notes, probes, results, and patches out of releases.
+# The formal launcher freezes these two source-checkout entrypoints.
+/agentpilot/experiments/*
+!/agentpilot/experiments/run_formal_research.py
+!/agentpilot/experiments/run_research_portfolio.py
+/arena/verification/
+/agentpilot/verification/
+/agentpilot/integrations/arena/verification/
 
-# Logs
-logs/
+# Local image-generation notes and figure-editing intermediates
+/assets/**/*.prompt.txt
+/assets/**/*.prompt.md
+/assets/results/source/
+/output/imagegen/
 
-# GDPVal reference file cache (pre-downloaded from HuggingFace)
-benchmarks/gdpval/ref_cache/
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.code-workspace
+.spyderproject
+.spyproject
+.ropeproject
+.pdm.toml
+.pdm-python
+.pypirc
 
-# Terminal-Bench benchmark harness is not part of this release
-benchmarks/terminal_bench/
-!benchmarks/terminal_bench/
-!benchmarks/terminal_bench/*.py
-!benchmarks/terminal_bench/**/*.py
-benchmarks/terminal_bench/runs/
-benchmarks/terminal_bench/datasets/
-benchmarks/terminal_bench/logs/
-
-# Embedding cache - root level fully ignored
-/.openspace/
-# GDPVal benchmark cache
-benchmarks/gdpval/.openspace/*
-!benchmarks/gdpval/.openspace/*.db
-
-# Embedding cache
-embedding_cache/
-tool_quality/
-
-# MCP tool cache
-mcp_tool_cache.json
-mcp_tool_cache_sanitized.json
-
-# Config files
-openspace/config/config_dev.json
-
-# LLM keys
-openspace/llm/remote_client/
-
-# Local server temp files
-openspace/local_server/temp/
-
-# Example app local state and build artifacts
-examples/*/.openspace/*
-!examples/*/.openspace/*.db
-examples/*/dist/
-examples/*/node_modules/
-
-# Skills
-openspace/skills/*
-!openspace/skills/remember/
-!openspace/skills/remember/SKILL.md
-!openspace/skills/remember/.skill_id
-
-# Frontend dependencies
-node_modules/
-# App local dependency links
-apps/*/node_modules/
+# Local experiment outputs and scratch material
+runs/
+aime-artifacts/
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.jsonl
+*.trace
+*.out
+*.log
+tmp/
+temp/
+target/
+instance/
+.webassets-cache
+.scrapy
+celerybeat-schedule
+celerybeat.pid
+*.sage.py
+pip-log.txt
+pip-delete-this-directory.txt
+CubeSandbox/

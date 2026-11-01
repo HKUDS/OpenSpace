@@ -1,0 +1,75 @@
+{
+  "schema": "agentpilot.research-semantic-cases.v1",
+  "annotation_source": "Agent-authored program-design examples, labeled by their stated behavior before encoding. These are not benchmark outcomes or human annotations.",
+  "annotators": ["codex-case-author"],
+  "minimum_annotators": 1,
+  "minimum_cases_per_label": 8,
+  "boundary_margin": 0.005,
+  "scope": ["src/harbor/agents/terminus_2/terminus_2.py"],
+  "groups": [
+    {
+      "id": "action-fusion", "split": "calibration",
+      "anchor": "Reduce unnecessary model round trips between editing a file and testing it. Extend the file-edit tool with an optional shell command, executed only after the edit succeeds, and return both results together.",
+      "paraphrase": "Reduce unnecessary model round trips between editing a file and testing it. Add an optional shell command to the file-edit tool; run it only after a successful edit and return the edit and command results together.",
+      "novel": "Reduce unnecessary model round trips when the next actions are already known. Introduce a batch executor for a dependency-ordered list of tool operations, stopping downstream operations when a prerequisite fails and returning all completed results.",
+      "distinct": "Reduce model context growth from verbose terminal observations. Save large outputs as immutable files and return short excerpts with references that support later page reads.",
+      "annotation": "The first two specify identical edit-then-test behavior. Batching is a different realization of avoiding intermediate model decisions. Output storage changes observation size rather than the number of intermediate decisions."
+    },
+    {
+      "id": "observation-storage", "split": "calibration",
+      "anchor": "Prevent old tool outputs from occupying the model context repeatedly. Archive each full observation, retain its identifier and a short excerpt in messages, and expose a tool to retrieve selected line ranges.",
+      "paraphrase": "Prevent old tool outputs from repeatedly occupying the model context. Archive each complete observation, keep its identifier and a short excerpt in the messages, and provide a tool for retrieving selected line ranges.",
+      "novel": "Prevent old tool outputs from occupying the model context repeatedly. Maintain a bounded observation cache that keeps the currently relevant outputs expanded, replaces older bodies with searchable references, and expands them again on demand.",
+      "distinct": "Prevent duplicate provider calls after a process crash. Persist a model response receipt before applying its tool operations and recover unfinished turns from that receipt using stable call identifiers.",
+      "annotation": "Archival wording is equivalent; an active observation cache changes eviction and retrieval but addresses the same context-retention mechanism. Durable provider receipts instead address crash recovery and duplicate dispatch."
+    },
+    {
+      "id": "completion-artifacts", "split": "calibration",
+      "anchor": "Prevent completion from being accepted before the requested output exists. On a completion request, check the declared output path for a readable nonempty file and return a concrete missing-artifact message if the check fails.",
+      "paraphrase": "Prevent accepting completion before the requested output exists. When completion is requested, require a readable nonempty file at the declared output path; otherwise return a concrete missing-artifact message.",
+      "novel": "Prevent completion from being accepted before the requested outputs exist. Introduce a two-phase completion handshake that first captures an output-artifact inventory and then commits completion only after validating the inventory against the requested deliverables.",
+      "distinct": "Prevent malformed tool arguments from reaching the executor. Validate function names and argument types against the tool schema, and request a corrected invocation when validation fails.",
+      "annotation": "Both first descriptions check the same completion artifact condition. An inventory handshake is a different implementation of enforcing deliverables at completion. Invocation-schema validation checks another boundary and does not establish artifact existence."
+    },
+    {
+      "id": "repeated-actions", "split": "calibration",
+      "anchor": "Interrupt repeated unsuccessful commands when the environment has not changed. Fingerprint each command together with its observed state, count consecutive repetitions, and ask the model to change its approach after the configured threshold.",
+      "paraphrase": "Interrupt repeated unsuccessful commands while the environment remains unchanged. Fingerprint each command and its observed state, count consecutive repetitions, and prompt the model to change approach once the configured threshold is reached.",
+      "novel": "Interrupt unproductive action cycles. Maintain a short history of command-and-state pairs, detect repeated multi-step cycles rather than identical adjacent commands, and return the cycle evidence before asking for a different approach.",
+      "distinct": "Preserve a long-running command while it is making progress. Monitor new output and process liveness, and extend the wait interval while progress continues instead of sending another shell command.",
+      "annotation": "The adjacent repetition rules are equivalent; multi-step cycle detection changes the realization of loop detection. Waiting on a live process addresses execution scheduling rather than detecting repeated model actions."
+    },
+    {
+      "id": "source-orientation", "split": "acceptance",
+      "anchor": "Help the researcher understand the supplied program before proposing edits. Present a source directory with entrypoints and the main call relationships, and let the researcher open function bodies through stable source references.",
+      "paraphrase": "Help the researcher understand the supplied program before proposing edits. Show a source directory containing entrypoints and main call relationships, with stable references for opening the function bodies.",
+      "novel": "Help the researcher understand the supplied program before proposing edits. Offer an interactive dependency traversal beginning at an entrypoint, expanding callers and callees with their state inputs and outputs as the researcher follows the execution flow.",
+      "distinct": "Help the researcher compare repeated executions of the same task. Group traces by task identity and expose both successful and failed attempts with their outcome counts and readable record references.",
+      "annotation": "The two directories expose the same source orientation. Interactive dependency traversal changes its implementation. Repeated execution grouping organizes empirical attempts, not program structure."
+    },
+    {
+      "id": "argument-validation", "split": "acceptance",
+      "anchor": "Catch malformed tool calls before execution. Check the function name, required arguments and argument types against the declared tool schema and return a localized validation error for a corrected call.",
+      "paraphrase": "Catch malformed tool calls before execution. Validate the function name, required arguments and their types against the declared schema, then return a localized error so the model can correct the call.",
+      "novel": "Catch malformed tool calls before execution. Construct invocations through typed argument builders that reject missing fields and invalid combinations while assembling the call, rather than validating a completed raw JSON object.",
+      "distinct": "Catch edits outside the allowed source boundaries before publishing a candidate. Inspect the actual parent-to-child Git diff and reject modifications to protected files or undeclared new paths.",
+      "annotation": "The first two express the same tool schema validation. Typed construction enforces the same invocation contract earlier. Git diff checks enforce edit authority after code changes, rather than tool argument validity."
+    },
+    {
+      "id": "completion-driven-wait", "split": "acceptance",
+      "anchor": "Let research continue when any independent experiment finishes. Replace waiting for the entire experiment batch with an await-any operation that returns completed tickets while retaining the other running jobs.",
+      "paraphrase": "Let research continue as soon as any independent experiment finishes. Use await-any instead of waiting for the whole batch, returning completed tickets and retaining the jobs still running.",
+      "novel": "Let research continue when independent experiments produce results. Publish completion events to a durable queue and resume the researcher from a subscription when a new result arrives, preserving the other experiment jobs across restarts.",
+      "distinct": "Keep displayed experiment results from exhausting the conversation context. Store full reports outside message history and retain short summaries with ticket references that can reopen the reports.",
+      "annotation": "The await-any variants are equivalent. Completion subscriptions implement the same result-driven scheduling through events. Report offloading changes retained context size rather than when research resumes."
+    },
+    {
+      "id": "response-recovery", "split": "acceptance",
+      "anchor": "Avoid paying twice for a completed model turn after a crash. Store the provider receipt under a stable call identifier before applying its tool calls, and replay the saved response when the turn resumes.",
+      "paraphrase": "Avoid paying twice for a completed model turn after a crash. Save its provider receipt with a stable call identifier before applying the tool calls, and replay that saved response on resume.",
+      "novel": "Avoid paying twice for a completed model turn after a crash. Use a durable request-state machine that records dispatch, receipt arrival and event application separately, recovering each intermediate state without submitting a completed request again.",
+      "distinct": "Avoid rebuilding a semantically repeated improvement direction. Embed proposed mechanisms and compare them against previous directions to identify an existing family, while keeping unrelated mechanisms in separate arms.",
+      "annotation": "Both receipt-first descriptions have identical recovery behavior. A request-state machine is another realization of exactly-once recovery. Semantic direction grouping concerns meaning across different requests and cannot prove that a provider call already completed."
+    }
+  ]
+}

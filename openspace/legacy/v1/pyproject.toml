@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openspace"
+version = "0.1.0"
+description = "OpenSpace"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "OpenSpace Team@HKUDS"}
+]
+
+dependencies = [
+    "litellm>=1.70.0,<1.82.7",  # pinned to avoid PYSEC-2026-2 supply-chain compromise (1.82.7/1.82.8 were malicious)
+    "python-dotenv>=1.0.0",
+    "openai>=1.0.0",
+    "jsonschema>=4.25.0",
+    "mcp>=1.0.0,<2",  # Preserve the archived FastMCP server API.
+    "anthropic>=0.71.0",
+    "pillow>=12.0.0",
+    "numpy>=1.24.0",
+    "colorama>=0.4.6",
+    "flask>=3.1.0",
+    "pyautogui>=0.9.54",
+    "pydantic>=2.12.0",
+    "aiohttp>=3.10.0",
+    "requests>=2.32.0",
+]
+
+[project.optional-dependencies]
+macos = [
+    "pyobjc-core>=12.0",
+    "pyobjc-framework-cocoa>=12.0",
+    "pyobjc-framework-quartz>=12.0",
+]
+
+linux = [
+    "python-xlib>=0.33",
+    "pyatspi>=2.38.0",
+    "numpy>=1.24.0",
+]
+
+windows = [
+    "pywinauto>=0.6.8",
+    "pywin32>=306",
+    "PyGetWindow>=0.0.9",
+]
+
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+communication = [
+    "lark-oapi>=1.4.20",
+]
+
+all = [
+    "openspace[macos]; sys_platform == 'darwin'",
+    "openspace[linux]; sys_platform == 'linux'",
+    "openspace[windows]; sys_platform == 'win32'",
+    "openspace[communication,dev]",
+]
+
+[project.urls]
+Repository = "https://github.com/HKUDS/AgentPilot"
+"Bug Tracker" = "https://github.com/HKUDS/AgentPilot/issues"
+
+[project.scripts]
+openspace = "openspace.__main__:run_main"
+openspace-server = "openspace.local_server.main:main"
+openspace-mcp = "openspace.mcp_server:run_mcp_server"
+openspace-download-skill = "openspace.cloud.cli.download_skill:main"
+openspace-upload-skill = "openspace.cloud.cli.upload_skill:main"
+openspace-dashboard = "openspace.dashboard_server:main"
+openspace-gateway = "openspace.communication.gateway:run_main"
+
+[tool.setuptools]
+packages = {find = {where = ["."], include = ["openspace*"]}}
+
+[tool.setuptools.package-data]
+openspace = [
+    "config/*.json",
+    "config/*.json.example",
+    "communication/bridges/whatsapp/*",
+    "local_server/config.json",
+    "local_server/README.md",
+]

@@ -1,0 +1,8 @@
+model_name,provider,input_price
+text-embedding-3-small,openai,0.02
+text-embedding-3-large,openai,0.13
+azure-text-embedding-3-small,azure,0.02
+azure-text-embedding-3-large,azure,0.13
+gemini-embedding-exp-03-07,google,0.0
+gemini-embedding-001,google,0.15
+gemini-embedding-2-preview,google,0.2

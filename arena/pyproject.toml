@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rsi-arena"
+version = "1.0.0"
+description = "Evaluation kernel for recursive self-improvement systems"
+authors = [
+    {name = "HKUDS"}
+]
+readme = "README.md"
+license = "MIT"
+license-files = [
+    "APACHE-2.0.txt",
+    "THIRD_PARTY_NOTICES.md",
+]
+requires-python = ">=3.11"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dsh-baseline = [
+    "deepseek-harness-sdk==0.1.0rc6",
+    "deepseek-harness-runtime-bin==0.1.0rc6",
+]
+swe-benchmark = [
+    "PyYAML>=6",
+]
+browsecomp-plus = [
+    "openai>=1.0",
+    "pyserini==0.44.0",
+    "tiktoken>=0.7",
+]
+openevolve-baseline = [
+    "dacite>=1.9.2",
+    "numpy>=1.22",
+    "openai>=1.0",
+    "PyYAML>=6",
+]
+shinka-baseline = [
+    "anthropic",
+    "backoff",
+    "google-genai",
+    "httpx==0.27",
+    "numpy",
+    "openai",
+    "pandas",
+    "psutil",
+    "pydantic",
+    "radon",
+    "rich",
+    "scikit-learn",
+    "scipy",
+    "unidiff",
+]
+
+[project.scripts]
+rsi-arena = "rsi_arena.cli:main"
+rsi-arena-webui = "rsi_arena.webui.__main__:main"
+rsi-arena-tb21-image-bundle = "rsi_arena.benchmarks.tb21.image_bundle:main"
+rsi-arena-swe-operator = "rsi_arena.benchmarks.swe.operator:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = [
+    "rsi_arena",
+    "rsi_arena.*",
+]
+
+[tool.setuptools.package-data]
+"rsi_arena.benchmarks.aime" = ["data/*.json"]
+"rsi_arena.benchmarks.tb21" = [
+    "verifier_dependency_closure.json",
+]
+"rsi_arena.benchmarks.browsecomp_plus" = [
+    "candidate_scaffold/*.txt",
+]
+"rsi_arena.baselines.dsh" = ["cordis.yml"]
+"rsi_arena.baselines.openevolve.runtime" = [
+    "prompts/defaults/*.json",
+    "prompts/defaults/*.txt",
+]
+"rsi_arena.baselines.shinka.runtime" = [
+    "embed/providers/*.csv",
+    "llm/providers/*.csv",
+]
+"rsi_arena.webui" = ["static/*.html", "static/*.css", "static/*.js"]

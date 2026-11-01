@@ -1,0 +1,20 @@
+{
+  "name": "agentpilot-local",
+  "interface": {
+    "displayName": "AgentPilot"
+  },
+  "plugins": [
+    {
+      "name": "agentpilot",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agentpilot"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

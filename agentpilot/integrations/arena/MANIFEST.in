@@ -1,0 +1,3 @@
+include README.md
+recursive-include docs *.md
+recursive-include examples *.example *.yaml

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agentpilot",
+  "version": "1.0.0",
+  "description": "Prepare missing task/eval inputs and run configured AgentPilot experiments.",
+  "author": {
+    "name": "AgentPilot Team@HKUDS"
+  },
+  "homepage": "https://github.com/HKUDS/AgentPilot",
+  "repository": "https://github.com/HKUDS/AgentPilot",
+  "license": "MIT",
+  "keywords": [
+    "coding",
+    "evaluation",
+    "policy-memory"
+  ],
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "onboardingSkill": "./skills/agentpilot/SKILL.md",
+      "interface": {
+        "displayName": "AgentPilot",
+        "shortDescription": "Prepare inputs and run the AgentPilot loop.",
+        "longDescription": "One entry: the current agent prepares missing task/evaluation inputs, then hands a ready environment to the configured AgentPilot runner. Formal runs need a compatible adapter, working evaluation and model/worker settings. Requires local file access and command execution.",
+        "developerName": "HKUDS",
+        "category": "Productivity",
+        "defaultPrompt": [
+          "Use AgentPilot to improve this project."
+        ]
+      }
+    }
+  }
+}

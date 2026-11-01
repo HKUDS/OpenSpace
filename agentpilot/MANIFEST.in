@@ -1,0 +1,2 @@
+prune integrations
+recursive-include configs *.md *.toml

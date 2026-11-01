@@ -1,0 +1,239 @@
+# Public formal openevolve x AIME experiment (10 candidates).
+# Relative runtime paths are documented in README.md.
+
+[benchmark_runtime.inner_agent]
+ref = "builtin:terminus-2"
+
+[baseline]
+cwd = "."
+candidate_root = "."
+
+[baseline.env]
+
+[baseline.config]
+development_concurrency = 16
+candidate_path = "src/harbor/agents/terminus_2/terminus_2.py"
+
+[baseline.config.native]
+max_iterations = 9
+checkpoint_interval = 1
+random_seed = 42
+language = "python"
+file_suffix = ".py"
+diff_based_evolution = true
+max_code_length = 400000
+max_tasks_per_child = 1
+log_level = "INFO"
+
+[baseline.config.native.llm]
+api_base = "https://openrouter.ai/api/v1"
+api_key = "${OPENROUTER_API_KEY}"
+temperature = 0.7
+max_tokens = 32000
+timeout = 600
+retries = 0
+retry_delay = 5
+random_seed = 42
+reasoning_effort = "high"
+models = [{ name = "deepseek/deepseek-v4-flash-0731", provider = "openai", weight = 1.0 }]
+
+[baseline.config.native.prompt]
+system_message = "Improve only the frozen Terminus 2 candidate file. Preserve its public interfaces and native agent loop. Use Arena A feedback as development material; Arena B score is the only selection fitness. If Arena feedback reports a candidate runtime failure, repair it before generating another candidate; never resubmit unchanged code. Return a focused SEARCH/REPLACE diff."
+num_top_programs = 1
+num_diverse_programs = 0
+use_template_stochasticity = true
+include_artifacts = true
+max_artifact_bytes = 72000
+artifact_security_filter = true
+suggest_simplification_after_chars = 200000
+diff_summary_max_line_len = 100
+diff_summary_max_lines = 30
+
+[baseline.config.native.database]
+in_memory = true
+log_prompts = true
+population_size = 32
+archive_size = 32
+num_islands = 1
+random_seed = 42
+feature_dimensions = ["complexity", "diversity"]
+feature_bins = 10
+
+[baseline.config.native.evaluator]
+timeout = 9000
+max_retries = 0
+cascade_evaluation = false
+parallel_evaluations = 1
+distributed = false
+use_llm_feedback = false
+enable_artifacts = true
+
+[baseline.config.native.evolution_trace]
+enabled = true
+format = "jsonl"
+include_code = false
+include_prompts = true
+buffer_size = 1
+compress = false
+
+[baseline.config.development_policy]
+
+[baseline.config.development_policy.benchmarks]
+
+[baseline.config.development_policy.benchmarks.aime]
+a_task_ids = [
+  "aime-2024-i-09",
+  "aime-2024-i-12",
+  "aime-2024-ii-04",
+  "aime-2025-i-14",
+  "aime-2025-ii-01",
+  "aime-2025-ii-10",
+]
+b_task_ids = [
+  "aime-2024-i-02",
+  "aime-2024-i-04",
+  "aime-2024-i-05",
+  "aime-2024-i-07",
+  "aime-2024-i-08",
+  "aime-2024-i-13",
+  "aime-2024-i-15",
+  "aime-2024-ii-06",
+  "aime-2024-ii-12",
+  "aime-2025-i-03",
+  "aime-2025-i-04",
+  "aime-2025-i-08",
+  "aime-2025-i-09",
+  "aime-2025-i-11",
+  "aime-2025-ii-04",
+  "aime-2025-ii-08",
+  "aime-2025-ii-11",
+  "aime-2025-ii-13",
+]
+
+[baseline.config.development_policy.benchmarks.aime.sampling]
+kind = "random_subset"
+sample_size = 9
+seed = 11
+fixed_task_ids = []
+[[benchmarks]]
+name = "aime"
+
+[benchmarks.config]
+cell_id = "openevolve-aime-formal"
+candidate_entrypoint = "."
+
+[benchmarks.config.campaign_freeze]
+schema = "campaign-freeze"
+campaign_id = "arena-public-openevolve-aime-cap10"
+held_out_sealed = true
+freeze_id = "sha256:4a1642e1e557b1781aae91dd67eeb079a117566189ce505da0a3ec2d1779766c"
+
+[benchmarks.config.campaign_freeze.benchmarks]
+
+[benchmarks.config.campaign_freeze.benchmarks.aime]
+source_reference = "rsi-arena://aime-2024-2025"
+task_catalog_ref = "rsi-arena://aime-2024-2025"
+
+[benchmarks.config.campaign_freeze.cells]
+
+[benchmarks.config.campaign_freeze.cells.openevolve-aime-formal]
+method = "openevolve"
+benchmarks = ["aime"]
+aggregate = { kind = "macro_mean_pass_rate" }
+
+[benchmarks.config.campaign_freeze.dataset_boundaries]
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime]
+schema = "dataset-boundary"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime.development_set]
+ordered_task_ids = [
+  "aime-2024-i-09",
+  "aime-2024-i-12",
+  "aime-2024-ii-04",
+  "aime-2025-i-14",
+  "aime-2025-ii-01",
+  "aime-2025-ii-10",
+  "aime-2024-i-02",
+  "aime-2024-i-04",
+  "aime-2024-i-05",
+  "aime-2024-i-07",
+  "aime-2024-i-08",
+  "aime-2024-i-13",
+  "aime-2024-i-15",
+  "aime-2024-ii-06",
+  "aime-2024-ii-12",
+  "aime-2025-i-03",
+  "aime-2025-i-04",
+  "aime-2025-i-08",
+  "aime-2025-i-09",
+  "aime-2025-i-11",
+  "aime-2025-ii-04",
+  "aime-2025-ii-08",
+  "aime-2025-ii-11",
+  "aime-2025-ii-13",
+]
+digest = "sha256:af5bddc8e4368606eb2d088cb456b7369f8f7c8d127e07ff8bfdb164d1d0b6ed"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime.development_set.task_clusters]
+"aime-2024-i-09" = "aime-2024/medium"
+"aime-2024-i-12" = "aime-2024/hard"
+"aime-2024-ii-04" = "aime-2024/easy"
+"aime-2025-i-14" = "aime-2025/hard"
+"aime-2025-ii-01" = "aime-2025/easy"
+"aime-2025-ii-10" = "aime-2025/medium"
+"aime-2024-i-02" = "aime-2024/easy"
+"aime-2024-i-04" = "aime-2024/easy"
+"aime-2024-i-05" = "aime-2024/easy"
+"aime-2024-i-07" = "aime-2024/medium"
+"aime-2024-i-08" = "aime-2024/medium"
+"aime-2024-i-13" = "aime-2024/hard"
+"aime-2024-i-15" = "aime-2024/hard"
+"aime-2024-ii-06" = "aime-2024/medium"
+"aime-2024-ii-12" = "aime-2024/hard"
+"aime-2025-i-03" = "aime-2025/easy"
+"aime-2025-i-04" = "aime-2025/easy"
+"aime-2025-i-08" = "aime-2025/medium"
+"aime-2025-i-09" = "aime-2025/medium"
+"aime-2025-i-11" = "aime-2025/hard"
+"aime-2025-ii-04" = "aime-2025/easy"
+"aime-2025-ii-08" = "aime-2025/medium"
+"aime-2025-ii-11" = "aime-2025/hard"
+"aime-2025-ii-13" = "aime-2025/hard"
+
+[benchmarks.config.campaign_freeze.dataset_boundaries.aime.held_out_set]
+opaque_identity = "rsi-arena://aime-2024-2025#held-out"
+digest = "sha256:3c802b66beb01f1451b45c7e6e64602a2487e163e99118d5e3bed11504b55a5b"
+count = 36
+
+[benchmarks.config.cell_budget]
+wall_seconds = 2100.0
+# max_cost_usd = 50.0
+
+[benchmarks.config.adapter]
+include_task_ids = []
+materialize_selected_only = false
+model = "openrouter/qwen/qwen3.5-9b"
+reasoning_enabled = true
+temperature = 0.0
+env_passthrough = []
+harbor_max_retries = 0
+worker_timeout_seconds = 1200.0
+cleanup_grace_seconds = 30.0
+physical_isolation = true
+trusted_harbor_root = "harbor"
+bridge_bwrap_path = "bwrap"
+provider_name = "openrouter"
+provider_base_url = "https://openrouter.ai/api/v1"
+provider_base_url_env_name = "OPENROUTER_BASE_URL"
+credential_env_name = "OPENROUTER_API_KEY"
+
+[benchmarks.resolved]
+
+[arena]
+attempt_cap = 10
+concurrency = 16
+wall_seconds = 61200.0
+
+[execution]
+profile = "public-openevolve-aime-cap10-formal"

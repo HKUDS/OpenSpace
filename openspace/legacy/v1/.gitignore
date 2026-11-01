@@ -1,0 +1,81 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+!/gdpval_bench/tasks_50_full.jsonl
+*.py[cod]
+*$py.class
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+.pytest_cache/
+.venv/
+.test-venv/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Environment files (ignore .env but keep .env.example)
+.env
+!.env.example
+
+# MCP config files
+openspace/config/config_mcp.json
+
+# Communication config files
+openspace/config/config_communication.json
+
+# Logs
+logs/
+
+# GDPVal reference file cache (pre-downloaded from HuggingFace)
+gdpval_bench/ref_cache/
+
+# Embedding cache - root level fully ignored
+/.openspace/
+# Showcase db - only ignore temp files, keep .db
+showcase/.openspace/*
+!showcase/.openspace/*.db
+
+# GDPVal benchmark cache
+gdpval_bench/.openspace/*
+!gdpval_bench/.openspace/*.db
+
+# Embedding cache
+embedding_cache/
+tool_quality/
+
+# MCP tool cache
+mcp_tool_cache.json
+mcp_tool_cache_sanitized.json
+
+# Config files
+openspace/config/config_dev.json
+
+# LLM keys
+openspace/llm/remote_client/
+
+# Local server temp files
+openspace/local_server/temp/
+
+examples/
+# Skills
+openspace/skills/*
+!openspace/skills/README.md
+
+# Frontend dependencies
+node_modules/
+# Frontend local dependency link
+frontend/node_modules

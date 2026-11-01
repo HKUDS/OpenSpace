@@ -1,0 +1,4 @@
+# Optional: install for ClawWork-aligned evaluation (LLMEvaluator from livebench).
+# If evaluation fails with "No module named 'langchain_core'", run:
+#   pip install -r gdpval_bench/requirements-eval.txt
+langchain_core>=0.2.0
