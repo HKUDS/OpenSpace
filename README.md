@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-FCE7D6?style=flat)](https://www.python.org/) [![License](https://img.shields.io/badge/License-MIT-EDEDED?style=flat)](https://opensource.org/licenses/MIT/) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
-### ✨Better Next Moves. Fewer Wasted Tokens. Help Your Agent Get Things Done Faster.✨
+### ✨A 9B Model Proposes the Strategy. Frontier Models Execute It. Better Next Moves, Fewer Wasted Tokens.✨
 
 </div>
 
@@ -14,12 +14,14 @@
 
 Agents can execute, but struggle to decide what's worth trying next.
 
-Without a good policy to guide them, agents waste tokens repeating mistakes and chasing dead ends.
+AgentPilot uses a lightweight 9B strategy model to guide much larger frontier models in executing coding tasks.
 
 AgentPilot helps your agents learn from each trial and choose a better next move:
 - **What to change** based on what worked and what failed.
 - **Which approach to try next** instead of repeating the same mistakes.
 - **When to keep exploring—and when to stop** to avoid wasting the trial budget.
+
+The larger model executes. The 9B model provides the strategy and improves its decisions through real feedback.
 
 **The goal is simple**: **Better Next Moves**. **Fewer Wasted Tokens**.
 
