@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-FCE7D6?style=flat)](https://www.python.org/) [![License](https://img.shields.io/badge/License-MIT-EDEDED?style=flat)](https://opensource.org/licenses/MIT/) [![Feishu](https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat)](./COMMUNICATION.md) [![WeChat](https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white)](./COMMUNICATION.md)
 
-### ✨A 9B Strategy Model Guides Your Agent’s Next Move. Frontier Models Execute. Better Decisions. Fewer Wasted Tokens.✨
+### ✨A 9B Strategy Model Guides Your Agent’s Next Move. Better Decisions. Fewer Wasted Tokens.✨
 
 </div>
 
