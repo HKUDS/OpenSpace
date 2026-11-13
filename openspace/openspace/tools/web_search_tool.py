@@ -484,6 +484,74 @@ class TavilySearchProvider(WebSearchProvider):
         return ProviderSearchResponse(results=tuple(results), provider=self.name)
 
 
+KEENABLE_SNIPPET_MAX_CHARS = 1000
+
+
+class KeenableSearchProvider(WebSearchProvider):
+    """Keenable web search. Works without a key via the public endpoint."""
+
+    name = "keenable"
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        endpoint: str | None = None,
+        max_results: int = DEFAULT_MAX_RESULTS,
+    ) -> None:
+        self.api_key = api_key or os.getenv("KEENABLE_API_KEY")
+        default_endpoint = (
+            "https://api.keenable.ai/v1/search"
+            if self.api_key
+            else "https://api.keenable.ai/v1/search/public"
+        )
+        self.endpoint = endpoint or os.getenv("OPENSPACE_KEENABLE_SEARCH_URL", default_endpoint)
+        self.max_results = max_results
+
+    async def search(
+        self,
+        *,
+        query: str,
+        allowed_domains: Sequence[str] | None = None,
+        blocked_domains: Sequence[str] | None = None,
+        context: Any = None,
+        abort_event: asyncio.Event | None = None,
+    ) -> ProviderSearchResponse:
+        headers = {"X-Keenable-Title": "OpenSpace"}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        data = await _post_json(
+            self.endpoint,
+            {"query": query, "max_results": self.max_results},
+            headers=headers,
+            abort_event=abort_event,
+        )
+        hits = tuple(
+            SearchHit(
+                title=str(item.get("title") or item.get("url") or ""),
+                url=str(item.get("url") or ""),
+                snippet=_keenable_snippet(item),
+            )
+            for item in data.get("results", [])
+            if isinstance(item, Mapping) and item.get("url")
+        )
+        hits = filter_hits_by_domain(hits, allowed_domains, blocked_domains)
+        return ProviderSearchResponse(
+            results=(SearchResult(tool_use_id="web_search_keenable", content=hits),),
+            provider=self.name,
+        )
+
+
+def _keenable_snippet(item: Mapping[str, Any]) -> str | None:
+    description = str(item.get("description") or "").strip()
+    if description:
+        return description
+    snippet = str(item.get("snippet") or "").strip()
+    if len(snippet) > KEENABLE_SNIPPET_MAX_CHARS:
+        snippet = snippet[:KEENABLE_SNIPPET_MAX_CHARS] + "…"
+    return snippet or None
+
+
 class BraveSearchProvider(WebSearchProvider):
     name = "brave"
 
@@ -729,10 +797,11 @@ async def _post_json(
     url: str,
     payload: Mapping[str, Any],
     *,
+    headers: Mapping[str, str] | None = None,
     abort_event: asyncio.Event | None = None,
 ) -> Any:
     body, _content_type = await _request_text(
-        "POST", url, json_payload=payload, abort_event=abort_event
+        "POST", url, json_payload=payload, headers=headers, abort_event=abort_event
     )
     return json.loads(body)
 
@@ -771,6 +840,8 @@ def _provider_from_name(name: str, *, max_results: int = DEFAULT_MAX_RESULTS) ->
         return TavilySearchProvider(max_results=max_results)
     if normalized == "brave":
         return BraveSearchProvider(max_results=max_results)
+    if normalized == "keenable":
+        return KeenableSearchProvider(max_results=max_results)
     if normalized in {"serpapi", "serp"}:
         return SerpAPISearchProvider(max_results=max_results)
     if normalized in {"duckduckgo", "ddg"}:
@@ -791,6 +862,8 @@ def get_default_provider_names() -> tuple[str, ...]:
         names.append("brave")
     if os.getenv("SERPAPI_API_KEY"):
         names.append("serpapi")
+    if os.getenv("KEENABLE_API_KEY"):
+        names.append("keenable")
     names.append("duckduckgo")
     return tuple(names)
 
